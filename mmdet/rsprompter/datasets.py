@@ -1,6 +1,7 @@
 from mmdet.datasets import CocoDataset
 from mmdet.registry import DATASETS
 
+
 @DATASETS.register_module()
 class NWPUInsSegDataset(CocoDataset):
     METAINFO = {
@@ -26,4 +27,12 @@ class SSDDInsSegDataset(CocoDataset):
     METAINFO = {
         'classes': ['ship'],
         'palette': [(0, 0, 255)]
+    }
+    
+@DATASETS.register_module()
+class TreesInsSegDataset(CocoDataset):
+    METAINFO = {
+        'classes': ['piba','pima', 'pist','pigl', 'thoc', 'ulam', 'other', 'beal', 'acsa'],
+        'palette': [(220, 20, 60), (255, 0, 0), (0, 0, 142), (0, 0, 70),  (0, 60, 100), (0, 80, 100), (0, 0, 230),
+                    (119, 11, 32), (0, 255, 0)]
     }

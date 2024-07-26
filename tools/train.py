@@ -1,16 +1,18 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import sys
-sys.path.append(sys.path[0] + '/..')
 import argparse
 import os
 import os.path as osp
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', "mmdet")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', "mmdet/rsprompter")))
 from mmengine.config import Config, DictAction
 from mmengine.registry import RUNNERS
 from mmengine.runner import Runner
 
 from mmdet.utils import setup_cache_size_limit_of_dynamo
-
+from mmdet.datasets import ConcatDataset
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
@@ -71,7 +73,19 @@ def main():
     cfg.launcher = args.launcher
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
-
+        
+    if len(cfg.train_datasets_list)>1:
+        #from mmdet.registry import DATASETS
+        #data1 = DATASETS.build(cfg.train_datasets_list[0])
+        #data2= DATASETS.build(cfg.train_datasets_list[1])
+        #train_dataset = ConcatDataset(cfg.train_datasets_list)
+        train_dataset = dict(type='ConcatDataset', datasets=cfg.train_datasets_list)
+        cfg.train_dataloader = dict(
+            batch_size=cfg.batch_size_per_gpu,
+            num_workers=cfg.num_workers,
+            persistent_workers=cfg.persistent_workers,
+            dataset = train_dataset
+            )
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None
@@ -106,6 +120,7 @@ def main():
         cfg.resume = True
         cfg.load_from = args.resume
 
+    
     # build the runner from config
     if 'runner_type' not in cfg:
         # build the default runner
