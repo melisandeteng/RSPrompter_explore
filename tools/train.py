@@ -73,36 +73,7 @@ def main():
     cfg.launcher = args.launcher
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
-    """
-    if len(cfg.train_datasets_list)>1:
- 
-        train_dataset = dict(type='ConcatDataset', datasets=cfg.train_datasets_list)
-        cfg.train_dataloader = dict(
-            batch_size=cfg.batch_size_per_gpu,
-            num_workers=cfg.num_workers,
-            persistent_workers=cfg.persistent_workers,
-            dataset = train_dataset
-            )
-    if len(cfg.val_datasets_list)>1:
-        
-        val_dataset = dict(type='ConcatDataset', datasets=cfg.val_datasets_list)
-        cfg.val_dataloader = dict(
-            batch_size=cfg.batch_size_per_gpu,
-            num_workers=cfg.num_workers,
-            persistent_workers=cfg.persistent_workers,
-            dataset = val_dataset
-            )
-        
-    if len(cfg.test_datasets_list)>1:
-      
-        test_dataset = dict(type='ConcatDataset', datasets=cfg.test_datasets_list)
-        cfg.test_dataloader = dict(
-            batch_size=cfg.batch_size_per_gpu,
-            num_workers=cfg.num_workers,
-            persistent_workers=cfg.persistent_workers,
-            dataset = test_dataset
-            )
-    """   
+  
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None
