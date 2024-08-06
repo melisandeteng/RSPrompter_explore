@@ -9,10 +9,10 @@ from .frame_sampling import BaseFrameSample, UniformRefFrameSample
 from .geometric import (GeomTransform, Rotate, ShearX, ShearY, TranslateX,
                         TranslateY)
 from .instaboost import InstaBoost
-from .loading import (FilterAnnotations, InferencerLoader, LoadAnnotations,
-                      LoadEmptyAnnotations, LoadImageFromNDArray,
+from .loading import (FilterAnnotations, InferencerLoader, LoadAnnotations, 
+                    LoadEmptyAnnotations, LoadImageFromNDArray,
                       LoadMultiChannelImageFromFiles, LoadPanopticAnnotations,
-                      LoadProposals, LoadTrackAnnotations)
+                      LoadProposals, LoadTrackAnnotations,LoadImageFromFile)
 from .transformers_glip import GTBoxSubOne_GLIP, RandomFlip_GLIP
 from .transforms import (Albu, CachedMixUp, CachedMosaic, CopyPaste, CutOut,
                          Expand, FixScaleResize, FixShapeResize,
@@ -25,7 +25,7 @@ from .wrappers import MultiBranch, ProposalBroadcaster, RandomOrder
 
 __all__ = [
     'PackDetInputs', 'ToTensor', 'ImageToTensor', 'Transpose',
-    'LoadImageFromNDArray', 'LoadAnnotations', 'LoadPanopticAnnotations',
+    'LoadImageFromFile','LoadImageFromNDArray', 'LoadAnnotations', 'LoadPanopticAnnotations',
     'LoadMultiChannelImageFromFiles', 'LoadProposals', 'Resize', 'RandomFlip',
     'RandomCrop', 'SegRescale', 'MinIoURandomCrop', 'Expand',
     'PhotoMetricDistortion', 'Albu', 'InstaBoost', 'RandomCenterCropPad',

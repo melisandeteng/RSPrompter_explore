@@ -6,7 +6,7 @@ default_hooks = dict(
     timer=dict(type='IterTimerHook'),
     logger=dict(type='LoggerHook', interval=20),
     param_scheduler=dict(type='ParamSchedulerHook'),
-    checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=5, save_best=['coco/bbox_mAP', 'coco/segm_mAP'], rule='greater', save_last=True),
+        checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=5, save_best=['coco/bbox_mAP', 'coco/segm_mAP'], rule='greater', save_last=True),
     sampler_seed=dict(type='DistSamplerSeedHook'),
 )
 
@@ -42,9 +42,10 @@ data_preprocessor = dict(
     mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
     std=[0.229 * 255, 0.224 * 255, 0.225 * 255],
     bgr_to_rgb=True,
-    pad_mask=True,
+    pad_mask=False, #True,
     pad_size_divisor=32,
-    batch_augments=batch_augments
+    #batch_augments=batch_augments
+    
 )
 
 num_classes = 1
@@ -200,40 +201,42 @@ model = dict(
 )
 
 # dataset settings
-dataset_type = 'WHUInsSegDataset'
+
+dataset_type = 'TreesInsSegDataset'
+#dataset_type = 'WHUInsSegDataset'
 
 code_root = '/mnt/home/xx/codes/RSPrompter'
 data_root = '/mnt/home/xx/data/NWPU'
 
-backend_args = None
+backend_args = None #{"imdecode_backend":"pillow"}
 
 train_pipeline = [
-    dict(type='LoadImageFromFile', backend_args=backend_args, to_float32=True),
-    dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
+    dict(type='LoadImageFromFile', imdecode_backend="tifffile", to_float32=True),
+    dict(type='LoadAnnotations', with_bbox=True, with_seg=True),
     dict(type='RandomFlip', prob=0.5),
     # large scale jittering
-    dict(
-        type='RandomResize',
-        scale=crop_size,
-        ratio_range=(0.1, 2.0),
-        resize_type='Resize',
-        keep_ratio=True),
-    dict(
-        type='RandomCrop',
-        crop_size=crop_size,
-        crop_type='absolute',
-        recompute_bbox=True,
-        allow_negative_crop=True),
+    #dict(
+    #    type='RandomResize',
+    #    scale=crop_size,
+    #    ratio_range=(0.1, 2.0),
+    #    resize_type='Resize',
+    #    keep_ratio=True),
+    #dict(
+    #    type='RandomCrop',
+    ##    crop_size=crop_size,
+    #    crop_type='absolute',
+    #    recompute_bbox=True,
+    #    allow_negative_crop=True),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-5, 1e-5), by_mask=True),
     dict(type='PackDetInputs')
 ]
 
 test_pipeline = [
-    dict(type='LoadImageFromFile', backend_args=backend_args, to_float32=True),
-    dict(type='Resize', scale=crop_size, keep_ratio=True),
-    dict(type='Pad', size=crop_size, pad_val=dict(img=(0.406 * 255, 0.456 * 255, 0.485 * 255), masks=0)),
+    dict(type='LoadImageFromFile', imdecode_backend= "tifffile", to_float32=True),
+    #dict(type='Resize', scale=crop_size, keep_ratio=True),
+    #dict(type='Pad', size=crop_size, pad_val=dict(img=(0.406 * 255, 0.456 * 255, 0.485 * 255), masks=0)),
     # If you don't have a gt annotation, delete the pipeline
-    dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
+    dict(type='LoadAnnotations', with_bbox=True, with_seg=True),
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor')

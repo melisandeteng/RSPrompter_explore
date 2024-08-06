@@ -29,12 +29,7 @@ hf_sam_pretrain_name = "/network/projects/trees-co2/RSPrompter/sam_vit_base"
 # huggingface model name, e.g. facebook/sam-vit-base
 # or local repo path, e.g. work_dirs/sam_cache/sam_vit_base
 hf_sam_pretrain_ckpt_path = "/network/projects/trees-co2/RSPrompter/sam_vit_base/pytorch_model.bin"
-# # sam large model
-# hf_sam_pretrain_name = "facebook/sam-vit-large"
-# hf_sam_pretrain_ckpt_path = "~/.cache//huggingface/hub/models--facebook--sam-vit-large/snapshots/70009d56dac23ebb3265377257158b1d6ed4c802/pytorch_model.bin"
-# # sam huge model
-# hf_sam_pretrain_name = "facebook/sam-vit-huge"
-# hf_sam_pretrain_ckpt_path = "~/.cache/huggingface/hub/models--facebook--sam-vit-huge/snapshots/89080d6dcd9a900ebd712b13ff83ecf6f072e798/pytorch_model.bin"
+
 
 model = dict(
     decoder_freeze=False,
@@ -71,13 +66,13 @@ model = dict(
 dataset_type = "TreesInsSegDataset"
 #### should be changed align with your code root and data root
 code_root = '/home/mila/t/tengmeli/RSPRompter'
-data_root = '/network/projects/trees-co2/Donnees_finales/Donnees_aois/final_data/2023_06_08_cb_bernard3_utm_19n_ortho' #'/network/projects/trees-co2/RSPrompterDataset/blackburn1/'
+data_root = '' #'/network/projects/trees-co2/RSPrompterDataset/blackburn1/'
 
 batch_size_per_gpu = 2
 num_workers = 8
 persistent_workers = True
 train_pipeline = [
-    dict(type='LoadImageFromFile', imdecode_backend="tifffile", to_float32=True),
+    dict(type='LoadImageFromFile',  channel_order="rgb",to_float32=True),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
     dict(type='RandomFlip', prob=0.5),
     # large scale jittering
@@ -93,12 +88,12 @@ train_pipeline = [
     #    crop_type='absolute',
     #    recompute_bbox=True,
     #    allow_negative_crop=True),
-    dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-5, 1e-5), by_mask=True),
+    #dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-5, 1e-5), by_mask=True),
     dict(type='PackDetInputs')
 ]
 
 test_pipeline = [
-    dict(type='LoadImageFromFile', imdecode_backend= "tifffile", to_float32=True),
+    dict(type='LoadImageFromFile',  channel_order="rgb", to_float32=True),
     #dict(type='Resize', scale=crop_size, keep_ratio=True),
     #dict(type='Pad', size=crop_size, pad_val=dict(img=(0.406 * 255, 0.456 * 255, 0.485 * 255), masks=0)),
     # If you don't have a gt annotation, delete the pipeline
@@ -106,25 +101,19 @@ test_pipeline = [
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor')
-    )
+     )
 ]
 
 
 train_datasets_list = [
     dict(
         type=dataset_type,
-        data_root=data_root,
-        ann_file="/network/projects/trees-co2/final_data/annotations_w_id/2023_06_08_cb_bernard3_utm_19n_ortho_coco_sf1p0_train.json",
-        data_prefix=dict(img='tiles/'),
+        data_root='',
+        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_train.json",
+        #data_prefix=dict(img='tiles/'),
         pipeline=train_pipeline,
 ), 
-    dict(
-        type=dataset_type,
-        data_root=data_root,
-        ann_file="/network/projects/trees-co2/final_data/annotations_w_id/2023_06_08_cb_bernard3_utm_19n_ortho_coco_sf1p0_valid.json",
-        data_prefix=dict(img='tiles/'),
-        pipeline=train_pipeline,
-)
+
     ]
 
 #train_dataset = ConcatDatasetTrees(train_datasets_list)
@@ -143,11 +132,23 @@ val_dataloader = dict(
     persistent_workers=persistent_workers,
     dataset=dict(
         type=dataset_type,
-        data_root=data_root,
-        ann_file="/network/projects/trees-co2/final_data/annotations_w_id/2023_06_08_cb_bernard3_utm_19n_ortho_coco_sf1p0_test.json",
-        data_prefix=dict(img='tiles/'),
+        data_root="",
+        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_val.json",
+        #data_prefix=dict(img='tiles/'),
     )
 )
+test_dataloader = dict(
+    batch_size=batch_size_per_gpu,
+    num_workers=num_workers,
+    persistent_workers=persistent_workers,
+    dataset=dict(
+        type=dataset_type,
+        data_root="",
+        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_test.json",
+        #data_prefix=dict(img='tiles/'),
+    )
+)
+
 
 find_unused_parameters = True
 

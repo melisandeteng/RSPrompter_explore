@@ -680,7 +680,7 @@ class RSMaskFormerFusionHead(MaskFormerFusionHead):
             # remove padding
             img_height, img_width = meta['img_shape'][:2]
             ori_img_height, ori_img_width = meta['ori_shape'][:2]
-            scale_factor = meta['scale_factor']
+            scale_factor = (1,1) #meta['scale_factor']
             ori_scaled_height = int(ori_img_height * scale_factor[1])
             ori_scaled_width = int(ori_img_width * scale_factor[0])
             mask_pred_result = mask_pred_result[:, :ori_scaled_height, :ori_scaled_width]
@@ -1112,10 +1112,10 @@ class SAMDet(BaseDetector):
                     device=batch_inputs.device,
                     dtype=torch.bool)
             else:
-                scale_factor = data_sample.scale_factor
-                repeat_num = bboxes.size(-1) // 2
-                scale_factor = bboxes.new_tensor(scale_factor).repeat((1, repeat_num))
-                bboxes = bboxes * scale_factor
+               # scale_factor = data_sample.scale_factor
+                #repeat_num = bboxes.size(-1) // 2
+                #scale_factor = bboxes.new_tensor(scale_factor).repeat((1, repeat_num))
+                bboxes = bboxes# * scale_factor
 
                 input_img = input_img.unsqueeze(0)
                 bboxes = bboxes.unsqueeze(0)
@@ -1129,7 +1129,7 @@ class SAMDet(BaseDetector):
                 mask_pred_result = mask_pred_result.squeeze(1)
 
                 ori_img_height, ori_img_width = meta['ori_shape'][:2]
-                scale_factor = meta['scale_factor']
+                scale_factor = (1,1) #meta['scale_factor']
                 ori_scaled_height = int(ori_img_height * scale_factor[1])
                 ori_scaled_width = int(ori_img_width * scale_factor[0])
 
@@ -1174,10 +1174,10 @@ class SAMDet(BaseDetector):
                     device=batch_inputs.device,
                     dtype=torch.bool)
             else:
-                scale_factor = data_sample.scale_factor
-                repeat_num = bboxes.size(-1) // 2
-                scale_factor = bboxes.new_tensor(scale_factor).repeat((1, repeat_num))
-                bboxes = bboxes * scale_factor
+                #scale_factor = data_sample.scale_factor
+                #repeat_num = bboxes.size(-1) // 2
+                #scale_factor = bboxes.new_tensor(scale_factor).repeat((1, repeat_num))
+                bboxes = bboxes #* scale_factor
 
                 input_img = input_img.unsqueeze(0)
                 bboxes = bboxes.unsqueeze(0)
@@ -1191,7 +1191,7 @@ class SAMDet(BaseDetector):
                 mask_pred_result = mask_pred_result.squeeze(1)
 
                 ori_img_height, ori_img_width = meta['ori_shape'][:2]
-                scale_factor = meta['scale_factor']
+                scale_factor = (1,1) #meta['scale_factor']
                 ori_scaled_height = int(ori_img_height * scale_factor[1])
                 ori_scaled_width = int(ori_img_width * scale_factor[0])
 
@@ -1751,8 +1751,7 @@ class RSPrompterAnchorMaskHead(FCNMaskHead, BaseModule):
                                 rcnn_test_cfg: ConfigDict,
                                 rescale: bool = False,
                                 activate_map: bool = False) -> Tensor:
-        scale_factor = bboxes.new_tensor(img_meta['scale_factor']).repeat(
-            (1, 2))
+        scale_factor =np.ones((2,2))#bboxes.new_tensor(img_meta['scale_factor']).repeat((1, 2))
         img_h, img_w = img_meta['ori_shape'][:2]
         if not activate_map:
             mask_preds = mask_preds.sigmoid()
@@ -1761,7 +1760,7 @@ class RSPrompterAnchorMaskHead(FCNMaskHead, BaseModule):
             mask_preds = bboxes.new_tensor(mask_preds)
 
         if rescale:  # in-placed rescale the bboxes
-            bboxes /= scale_factor
+            bboxes = bboxes #/= scale_factor
         else:
             w_scale, h_scale = scale_factor[0, 0], scale_factor[0, 1]
             img_h = np.round(img_h * h_scale.item()).astype(np.int32)
@@ -1769,7 +1768,7 @@ class RSPrompterAnchorMaskHead(FCNMaskHead, BaseModule):
         threshold = rcnn_test_cfg.mask_thr_binary
         im_mask = F.interpolate(mask_preds, size=img_meta['batch_input_shape'], mode='bilinear', align_corners=False).squeeze(1)
 
-        scale_factor_w, scale_factor_h = img_meta['scale_factor']
+        scale_factor_w, scale_factor_h = (1,1) #img_meta['scale_factor']
         ori_rescaled_size = (img_h * scale_factor_h, img_w * scale_factor_w)
         im_mask = im_mask[:, :int(ori_rescaled_size[0]), :int(ori_rescaled_size[1])]
 
