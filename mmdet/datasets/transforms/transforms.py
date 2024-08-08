@@ -440,7 +440,7 @@ class FixShapeResize(Resize):
             self.pad_transform = Pad(size=self.scale, pad_val=pad_val)
 
     @autocast_box_type()
-    def transform(self, results: dict) -> dict:
+    def transform(self, results: dict, keys = ['img']) -> dict:
         """Transform function to resize images, bounding boxes and semantic
         segmentation map.
 
@@ -451,28 +451,30 @@ class FixShapeResize(Resize):
             'scale', 'scale_factor', 'height', 'width', and 'keep_ratio' keys
             are updated in result dict.
         """
-        img = results['img']
-        h, w = img.shape[:2]
-        if self.keep_ratio:
-            scale_factor = min(self.width / w, self.height / h)
-            results['scale_factor'] = (scale_factor, scale_factor)
-            real_w, real_h = int(w * float(scale_factor) +
-                                 0.5), int(h * float(scale_factor) + 0.5)
-            img, scale_factor = mmcv.imrescale(
-                results['img'], (real_w, real_h),
-                interpolation=self.interpolation,
-                return_scale=True,
-                backend=self.backend)
-            # the w_scale and h_scale has minor difference
-            # a real fix should be done in the mmcv.imrescale in the future
-            results['img'] = img
-            results['img_shape'] = img.shape[:2]
-            results['keep_ratio'] = self.keep_ratio
-            results['scale'] = (real_w, real_h)
-        else:
-            results['scale'] = (self.width, self.height)
-            results['scale_factor'] = (self.width / w, self.height / h)
-            super()._resize_img(results)
+        
+        for key in keys():
+            img = results[key]
+            h, w = img.shape[:2]
+            if self.keep_ratio:
+                scale_factor = min(self.width / w, self.height / h)
+                results['scale_factor'] = (scale_factor, scale_factor)
+                real_w, real_h = int(w * float(scale_factor) +
+                                     0.5), int(h * float(scale_factor) + 0.5)
+                img, scale_factor = mmcv.imrescale(
+                    results[key], (real_w, real_h),
+                    interpolation=self.interpolation,
+                    return_scale=True,
+                    backend=self.backend)
+                # the w_scale and h_scale has minor difference
+                # a real fix should be done in the mmcv.imrescale in the future
+                results[key] = img
+                results['img_shape'] = img.shape[:2]
+                results['keep_ratio'] = self.keep_ratio
+                results['scale'] = (real_w, real_h)
+            else:
+                results['scale'] = (self.width, self.height)
+                results['scale_factor'] = (self.width / w, self.height / h)
+                super()._resize_img(results)
 
         self._resize_bboxes(results)
         self._resize_masks(results)
@@ -570,13 +572,14 @@ class RandomFlip(MMCV_RandomFlip):
                 'homography_matrix']
 
     @autocast_box_type()
-    def _flip(self, results: dict) -> None:
+    def _flip(self, results: dict, keys = ["img"]) -> None:
         """Flip images, bounding boxes, and semantic segmentation map."""
-        # flip image
-        results['img'] = mmcv.imflip(
-            results['img'], direction=results['flip_direction'])
+        for key in keys:
+        # flip image and / or dsm
+            results[key] = mmcv.imflip(
+                results[key], direction=results['flip_direction'])
 
-        img_shape = results['img'].shape[:2]
+            img_shape = results[key].shape[:2]
 
         # flip bboxes
         if results.get('gt_bboxes', None) is not None:
@@ -637,7 +640,7 @@ class RandomShift(BaseTransform):
         return random.uniform(0, 1)
 
     @autocast_box_type()
-    def transform(self, results: dict) -> dict:
+    def transform(self, results: dict, keys = ["img", "dsm"]) -> dict:
         """Transform function to random shift images, bounding boxes.
 
         Args:
@@ -682,14 +685,15 @@ class RandomShift(BaseTransform):
                     results['gt_ignore_flags'][valid_inds]
 
             # shift img
-            img = results['img']
-            new_img = np.zeros_like(img)
-            img_h, img_w = img.shape[:2]
-            new_h = img_h - np.abs(random_shift_y)
-            new_w = img_w - np.abs(random_shift_x)
-            new_img[new_y:new_y + new_h, new_x:new_x + new_w] \
-                = img[ori_y:ori_y + new_h, ori_x:ori_x + new_w]
-            results['img'] = new_img
+            for key in keys:
+                img = results[key]
+                new_img = np.zeros_like(img)
+                img_h, img_w = img.shape[:2]
+                new_h = img_h - np.abs(random_shift_y)
+                new_w = img_w - np.abs(random_shift_x)
+                new_img[new_y:new_y + new_h, new_x:new_x + new_w] \
+                    = img[ori_y:ori_y + new_h, ori_x:ori_x + new_w]
+                results[key] = new_img
 
         return results
 

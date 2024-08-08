@@ -121,7 +121,7 @@ class DetDataPreprocessor(ImgDataPreprocessor):
         batch_pad_shape = self._get_pad_shape(data)
         data = super().forward(data=data, training=training)
         inputs, data_samples = data['inputs'], data['data_samples']
-
+        print("input shape", inputs.shape)
         if data_samples is not None:
             # NOTE the batched image size information may be useful, e.g.
             # in DETR, this is needed for the construction of masks, which is
@@ -135,12 +135,12 @@ class DetDataPreprocessor(ImgDataPreprocessor):
 
             if self.boxtype2tensor:
                 samplelist_boxtype2tensor(data_samples)
+            
+            #if self.pad_mask and training:
+            #    self.pad_gt_masks(data_samples)
 
-            if self.pad_mask and training:
-                self.pad_gt_masks(data_samples)
-
-            if self.pad_seg and training:
-                self.pad_gt_sem_seg(data_samples)
+            #if self.pad_seg and training:
+            #    self.pad_gt_sem_seg(data_samples)
 
         if training and self.batch_augments is not None:
             for batch_aug in self.batch_augments:

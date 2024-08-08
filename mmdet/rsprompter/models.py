@@ -1781,3 +1781,5 @@ class RSPrompterAnchorMaskHead(FCNMaskHead, BaseModule):
             # for visualization and debugging
             im_mask = (im_mask * 255).to(dtype=torch.uint8)
         return im_mask
+    
+    

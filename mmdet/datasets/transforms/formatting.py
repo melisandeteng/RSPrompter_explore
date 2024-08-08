@@ -39,7 +39,7 @@ class PackDetInputs(BaseTransform):
         meta_keys (Sequence[str], optional): Meta keys to be converted to
             ``mmcv.DataContainer`` and collected in ``data[img_metas]``.
             Default: ``('img_id', 'img_path', 'ori_shape', 'img_shape',
-            'scale_factor', 'flip', 'flip_direction')``
+            'scale_factor', 'flip', 'flip_direction')`` should have "dsm_path" if dsm present 
     """
     mapping_table = {
         'gt_bboxes': 'bboxes',
@@ -84,7 +84,26 @@ class PackDetInputs(BaseTransform):
                 img = to_tensor(img).permute(2, 0, 1).contiguous()
 
             packed_results['inputs'] = img
+        if 'dsm' in results:
+            dsm = results['dsm']
+            if len(dsm.shape) < 3:
+                dsm = np.expand_dims(dsm, -1)
+            # To improve the computational speed by by 3-5 times, apply:
+            # If image is not contiguous, use
+            # `numpy.transpose()` followed by `numpy.ascontiguousarray()`
+            # If image is already contiguous, use
+            # `torch.permute()` followed by `torch.contiguous()`
+            # Refer to https://github.com/open-mmlab/mmdetection/pull/9533
+            # for more details
+            if not dsm.flags.c_contiguous:
+                dsm = np.ascontiguousarray(dsm.transpose(2, 0, 1))
+                dsm = to_tensor(dsm)
+            else:
+                dsm = to_tensor(dsm).permute(2, 0, 1).contiguous()
 
+            packed_results['inputs'] = (packed_results['inputs'], dsm)
+            #might remove later
+            packed_results['dsm_inputs']  = dsm
         if 'gt_ignore_flags' in results:
             valid_idx = np.where(results['gt_ignore_flags'] == 0)[0]
             ignore_idx = np.where(results['gt_ignore_flags'] == 1)[0]

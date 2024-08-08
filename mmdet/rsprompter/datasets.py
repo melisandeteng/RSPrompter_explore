@@ -1,4 +1,4 @@
-from mmdet.datasets import CocoDataset
+from mmdet.datasets import CocoDataset, CocoDSMDataset
 from mmdet.registry import DATASETS
 
 
@@ -31,6 +31,14 @@ class SSDDInsSegDataset(CocoDataset):
     
 @DATASETS.register_module()
 class TreesInsSegDataset(CocoDataset):
+    METAINFO = {
+        'classes': ['piba','pima', 'pist','pigl', 'thoc', 'ulam', 'other', 'beal', 'acsa'],
+        'palette': [(220, 20, 60), (255, 0, 0), (0, 0, 142), (0, 0, 70),  (0, 60, 100), (0, 80, 100), (0, 0, 230),
+                    (119, 11, 32), (0, 255, 0)]
+    }
+
+@DATASETS.register_module()
+class TreesInsSegDSMDataset(CocoDSMDataset):
     METAINFO = {
         'classes': ['piba','pima', 'pist','pigl', 'thoc', 'ulam', 'other', 'beal', 'acsa'],
         'palette': [(220, 20, 60), (255, 0, 0), (0, 0, 142), (0, 0, 70),  (0, 60, 100), (0, 80, 100), (0, 0, 230),

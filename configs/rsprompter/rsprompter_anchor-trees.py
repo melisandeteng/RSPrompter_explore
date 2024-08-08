@@ -15,7 +15,7 @@ default_hooks = dict(
 )
 
 vis_backends = [dict(type='LocalVisBackend'),
-                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees', group='rsprompter-anchor', name='rsprompter-anchor-trees'))
+                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees', group='rsprompter-anchor', name='rsprompter-anchor-trees-distrib'))
                 ]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -93,7 +93,7 @@ train_pipeline = [
 ]
 
 test_pipeline = [
-    dict(type='LoadImageFromFile',  channel_order="rgb", to_float32=True),
+    dict(type='LoadImageFromFile', channel_order="rgb", to_float32=True),
     #dict(type='Resize', scale=crop_size, keep_ratio=True),
     #dict(type='Pad', size=crop_size, pad_val=dict(img=(0.406 * 255, 0.456 * 255, 0.485 * 255), masks=0)),
     # If you don't have a gt annotation, delete the pipeline
@@ -122,7 +122,8 @@ train_dataloader = dict(
     batch_size=batch_size_per_gpu,
     num_workers=num_workers,
     persistent_workers=persistent_workers,
-    dataset = train_datasets_list[0]
+    dataset = train_datasets_list[0],
+   
     )
 
 
@@ -134,6 +135,7 @@ val_dataloader = dict(
         type=dataset_type,
         data_root="",
         ann_file="/network/projects/trees-co2/final_tiles/merged_annots_val.json",
+        pipeline=test_pipeline,
         #data_prefix=dict(img='tiles/'),
     )
 )
@@ -145,6 +147,7 @@ test_dataloader = dict(
         type=dataset_type,
         data_root="",
         ann_file="/network/projects/trees-co2/final_tiles/merged_annots_test.json",
+        pipeline=test_pipeline,
         #data_prefix=dict(img='tiles/'),
     )
 )
