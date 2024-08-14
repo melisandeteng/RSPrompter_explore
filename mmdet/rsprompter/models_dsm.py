@@ -41,7 +41,13 @@ class RSPrompterAnchorDSM(MaskRCNN):
         super().__init__(*args, **kwargs)
         self.shared_image_embedding = MODELS.build(shared_image_embedding)
         self.decoder_freeze = decoder_freeze
-
+        
+        self.backbone_dsm =  nn.Sequential(nn.Conv2d(1, 768, kernel_size=(16, 16), stride=(16, 16)), nn.Conv2d(768, 256, kernel_size=(1, 1)))
+        #nn.Sequential(
+        #    nn.Conv2d(1, 768, kernel_size=(16, 16), stride=(16, 16)),
+        #     nn.Conv2d(out_channels, out_channels, 3, padding=1)
+        #                                )
+        
         self.frozen_modules = []
         if peft_config is None:
             self.frozen_modules += [self.backbone]
@@ -74,10 +80,12 @@ class RSPrompterAnchorDSM(MaskRCNN):
         return positional_embedding.permute(2, 0, 1).unsqueeze(0)  # channel x height x width
 
     def extract_feat(self, batch_inputs) -> Tuple[Tensor]:
-        im_inputs, dsm_inputs =  batch_inputs
-        vision_outputs = self.backbone(batch_inputs)
         
-        dsm_outputs = self.backbone(dsm_inputs)
+        im_inputs, dsm_inputs =  batch_inputs
+        
+        vision_outputs = self.backbone(im_inputs)
+        dsm_outputs = self.backbone_dsm(dsm_inputs)
+        
         if isinstance(vision_outputs, SamVisionEncoderOutput):
             image_embeddings = vision_outputs[0]
             vision_hidden_states = vision_outputs[1]
@@ -89,10 +97,11 @@ class RSPrompterAnchorDSM(MaskRCNN):
         if isinstance(dsm_outputs, SamVisionEncoderOutput):
             
             dsm_hidden_states = dsm_outputs[1]
-        elif isinstance(vision_outputs, tuple):
+        elif isinstance(dsm_outputs, tuple):
             dsm_hidden_states = dsm_outputs
         else:
-            raise NotImplementedError
+            dsm_hidden_states = (dsm_outputs)
+            #raise NotImplementedError
 
         image_positional_embeddings = self.get_image_wide_positional_embeddings(size=image_embeddings.shape[-1])
         # repeat with batch size
@@ -100,12 +109,12 @@ class RSPrompterAnchorDSM(MaskRCNN):
         image_positional_embeddings = image_positional_embeddings.repeat(batch_size, 1, 1, 1)
 
         x = self.neck(vision_hidden_states)
-        dsm_x = self.neck(dsm_hidden_states)
+        dsm_x = dsm_hidden_states
         return x, dsm_x, image_embeddings, image_positional_embeddings
 
     def loss(self, batch_inputs,
              batch_data_samples: SampleList) -> dict:
-    
+        #import pdb; pdb.set_trace
         x, dsm_x,image_embeddings, image_positional_embeddings = self.extract_feat(batch_inputs)
 
         losses = dict()
@@ -128,7 +137,7 @@ class RSPrompterAnchorDSM(MaskRCNN):
         losses.update(rpn_losses)
 
         roi_losses = self.roi_head.loss(
-            x, rpn_results_list, batch_data_samples,
+            x, dsm_x, rpn_results_list, batch_data_samples,
             image_embeddings=image_embeddings,
             image_positional_embeddings=image_positional_embeddings,
         )
@@ -140,9 +149,10 @@ class RSPrompterAnchorDSM(MaskRCNN):
                 batch_inputs,
                 batch_data_samples: SampleList,
                 rescale: bool = True) -> SampleList:
-        batch_inputs = im_inputs, dsm_inputs
+        #import pdb; pdb.set_trace()
+        im_inputs, dsm_inputs = batch_inputs 
         x, dsm_x, image_embeddings, image_positional_embeddings = self.extract_feat(batch_inputs)
-
+        
         # If there are no pre-defined proposals, use RPN to get proposals
         if batch_data_samples[0].get('proposals', None) is None:
             rpn_results_list = self.rpn_head.predict(
@@ -153,13 +163,255 @@ class RSPrompterAnchorDSM(MaskRCNN):
             ]
 
         results_list = self.roi_head.predict(
-            x, rpn_results_list, batch_data_samples, rescale=rescale,
+            x, dsm_x, rpn_results_list, batch_data_samples, rescale=rescale,
             image_embeddings=image_embeddings,
             image_positional_embeddings=image_positional_embeddings,
         )
         batch_data_samples = self.add_pred_to_datasample(
             batch_data_samples, results_list)
         return batch_data_samples
+
+    
+    
+
+@MODELS.register_module()
+class RSPrompterAnchorRoIPromptHeadDSM(StandardRoIHead):
+    def __init__(
+        self,
+        with_extra_pe=False,
+        *args,
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        if with_extra_pe:
+            out_channels = self.bbox_roi_extractor.out_channels
+            positional_encoding = dict(
+                num_feats=out_channels // 2,
+                normalize=True,
+            )
+            self.extra_pe = SinePositionalEncoding(**positional_encoding)
+
+    def _mask_forward(self,
+                      x: Tuple[Tensor],
+                      dsm_x, 
+                      rois: Tensor = None,
+                      pos_inds: Optional[Tensor] = None,
+                      bbox_feats: Optional[Tensor] = None,
+                      image_embeddings=None,
+                      image_positional_embeddings=None,
+                      ) -> dict:
+        assert ((rois is not None) ^
+                (pos_inds is not None and bbox_feats is not None))
+        if rois is not None:
+            mask_feats = self.mask_roi_extractor(
+                x[:self.mask_roi_extractor.num_inputs], rois)
+            if self.with_shared_head:
+                mask_feats = self.shared_head(mask_feats)
+        else:
+            assert bbox_feats is not None
+            mask_feats = bbox_feats[pos_inds]
+
+        mask_preds, iou_predictions = self.mask_head(
+            mask_feats,
+            dsm_x, 
+            image_embeddings=image_embeddings,
+            image_positional_embeddings=image_positional_embeddings,
+            roi_img_ids=rois[:, 0] if rois is not None else None,
+        )
+        mask_results = dict(mask_preds=mask_preds, mask_feats=mask_feats, iou_predictions=iou_predictions)
+        return mask_results
+
+    def mask_loss(self, x: Tuple[Tensor], 
+                  dsm_x, 
+                  sampling_results: List[SamplingResult], bbox_feats: Tensor,
+                  batch_gt_instances: InstanceList,
+                  image_embeddings=None,
+                  image_positional_embeddings=None,
+                  ) -> dict:
+        if not self.share_roi_extractor:
+            pos_rois = bbox2roi([res.pos_priors for res in sampling_results])
+            if len(pos_rois) == 0:
+                print('no pos rois')
+                return dict(loss_mask=dict(loss_mask=0 * x[0].sum()))
+            mask_results = self._mask_forward(
+                x, dsm_x, pos_rois,
+                image_embeddings=image_embeddings,
+                image_positional_embeddings=image_positional_embeddings,
+            )
+            
+        else:
+            pos_inds = []
+            device = bbox_feats.device
+            for res in sampling_results:
+                pos_inds.append(
+                    torch.ones(
+                        res.pos_priors.shape[0],
+                        device=device,
+                        dtype=torch.uint8))
+                pos_inds.append(
+                    torch.zeros(
+                        res.neg_priors.shape[0],
+                        device=device,
+                        dtype=torch.uint8))
+            pos_inds = torch.cat(pos_inds)
+
+            mask_results = self._mask_forward(
+                x, dsm_x, pos_inds=pos_inds, bbox_feats=bbox_feats)
+
+        mask_loss_and_target = self.mask_head.loss_and_target(
+            mask_preds=mask_results['mask_preds'],
+            sampling_results=sampling_results,
+            batch_gt_instances=batch_gt_instances,
+            rcnn_train_cfg=self.train_cfg)
+
+        mask_results.update(loss_mask=mask_loss_and_target['loss_mask'])
+        return mask_results
+
+
+    def loss(self, x: Tuple[Tensor], dsm_x, rpn_results_list: InstanceList,
+             batch_data_samples: List[DetDataSample],
+             # extra inputs
+             image_embeddings=None,
+             image_positional_embeddings=None,
+             ) -> dict:
+        assert len(rpn_results_list) == len(batch_data_samples)
+        outputs = unpack_gt_instances(batch_data_samples)
+        batch_gt_instances, batch_gt_instances_ignore, _ = outputs
+
+        if hasattr(self, 'extra_pe'):
+            bs, _, h, w = x[0].shape
+            mask_pe = torch.zeros((bs, h, w), device=x[0].device, dtype=torch.bool)
+            img_feats_pe = self.extra_pe(mask_pe)
+            outputs = []
+            for i in range(len(x)):
+                output = x[i] + F.interpolate(img_feats_pe, size=x[i].shape[-2:], mode='bilinear', align_corners=False)
+                outputs.append(output)
+            x = tuple(outputs)
+
+        # assign gts and sample proposals
+        num_imgs = len(batch_data_samples)
+        sampling_results = []
+        for i in range(num_imgs):
+            # rename rpn_results.bboxes to rpn_results.priors
+            rpn_results = rpn_results_list[i]
+            rpn_results.priors = rpn_results.pop('bboxes')
+
+            assign_result = self.bbox_assigner.assign(
+                rpn_results, batch_gt_instances[i],
+                batch_gt_instances_ignore[i])
+            sampling_result = self.bbox_sampler.sample(
+                assign_result,
+                rpn_results,
+                batch_gt_instances[i],
+                feats=[lvl_feat[i][None] for lvl_feat in x])
+            sampling_results.append(sampling_result)
+
+        losses = dict()
+        # bbox head loss
+        if self.with_bbox:
+            bbox_results = self.bbox_loss(x, sampling_results)
+            losses.update(bbox_results['loss_bbox'])
+
+        # mask head forward and loss
+        if self.with_mask:
+            mask_results = self.mask_loss(
+                x, dsm_x, sampling_results, bbox_results['bbox_feats'], batch_gt_instances,
+                image_embeddings=image_embeddings,
+                image_positional_embeddings=image_positional_embeddings,
+            )
+            losses.update(mask_results['loss_mask'])
+
+        return losses
+
+    def predict_mask(
+        self,
+        x: Tuple[Tensor],
+        dsm_x, 
+        batch_img_metas: List[dict],
+        results_list: InstanceList,
+        rescale: bool = False,
+        image_embeddings=None,
+        image_positional_embeddings=None,
+        ) -> InstanceList:
+
+        # don't need to consider aug_test.
+        bboxes = [res.bboxes for res in results_list]
+        mask_rois = bbox2roi(bboxes)
+        if mask_rois.shape[0] == 0:
+            results_list = empty_instances(
+                batch_img_metas,
+                mask_rois.device,
+                task_type='mask',
+                instance_results=results_list,
+                mask_thr_binary=self.test_cfg.mask_thr_binary)
+            return results_list
+
+        mask_results = self._mask_forward(
+            x, dsm_x, mask_rois,
+            image_embeddings=image_embeddings,
+            image_positional_embeddings=image_positional_embeddings)
+
+        mask_preds = mask_results['mask_preds']
+        # split batch mask prediction back to each image
+        num_mask_rois_per_img = [len(res) for res in results_list]
+        mask_preds = mask_preds.split(num_mask_rois_per_img, 0)
+
+        # TODO: Handle the case where rescale is false
+        results_list = self.mask_head.predict_by_feat(
+            mask_preds=mask_preds,
+            results_list=results_list,
+            batch_img_metas=batch_img_metas,
+            rcnn_test_cfg=self.test_cfg,
+            rescale=rescale)
+        return results_list
+
+
+    def predict(self,
+                x: Tuple[Tensor],
+                dsm_x,
+                rpn_results_list: InstanceList,
+                batch_data_samples: SampleList,
+                rescale: bool = False,
+                # extra inputs
+                image_embeddings=None,
+                image_positional_embeddings=None,
+                ) -> InstanceList:
+        
+        batch_img_metas = [
+            data_samples.metainfo for data_samples in batch_data_samples
+        ]
+
+        if hasattr(self, 'extra_pe'):
+            bs, _, h, w = x[0].shape
+            mask_pe = torch.zeros((bs, h, w), device=x[0].device, dtype=torch.bool)
+            img_feats_pe = self.extra_pe(mask_pe)
+            outputs = []
+            for i in range(len(x)):
+                output = x[i] + F.interpolate(img_feats_pe, size=x[i].shape[-2:], mode='bilinear', align_corners=False)
+                outputs.append(output)
+            x = tuple(outputs)
+
+        # If it has the mask branch, the bbox branch does not need
+        # to be scaled to the original image scale, because the mask
+        # branch will scale both bbox and mask at the same time.
+        bbox_rescale = rescale if not self.with_mask else False
+        results_list = self.predict_bbox(
+            x,
+            batch_img_metas,
+            rpn_results_list,
+            rcnn_test_cfg=self.test_cfg,
+            rescale=bbox_rescale)
+        #import pdb; pdb.set_trace()
+        if self.with_mask:
+            results_list = self.predict_mask(
+                x, dsm_x, batch_img_metas, results_list, rescale=rescale,
+                image_embeddings=image_embeddings,
+                image_positional_embeddings=image_positional_embeddings,
+            )
+        return results_list
+
+
+    
 
 @MODELS.register_module()
 class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
@@ -234,8 +486,8 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
         img_bs = image_embeddings.shape[0]
         roi_bs = x.shape[0]
         image_embedding_size = image_embeddings.shape[-2:]
-
-        point_embedings = self.point_emb(torch.cat(x, dsm_x))
+        #import pdb; pdb.set_trace()
+        point_embedings = self.point_emb(x) #torch.cat(x, dsm_x))
         point_embedings = einops.rearrange(point_embedings, 'b (n c) -> b n c', n=self.per_pointset_point)
         if self.with_sincos:
             point_embedings = torch.sin(point_embedings[..., ::2]) + point_embedings[..., 1::2]
@@ -248,6 +500,7 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
 
         dense_embeddings = self.no_mask_embed.weight.reshape(1, -1, 1, 1).expand(roi_bs, -1, image_embedding_size[0], image_embedding_size[1])
         # get image embeddings with num_roi_per_image
+        image_embeddings = torch.multiply(image_embeddings ,dsm_x)
         image_embeddings = image_embeddings.repeat_interleave(num_roi_per_image, dim=0)
         image_positional_embeddings = image_positional_embeddings.repeat_interleave(num_roi_per_image, dim=0)
 

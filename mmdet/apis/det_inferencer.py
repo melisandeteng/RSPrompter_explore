@@ -465,7 +465,9 @@ class DetInferencer(BaseInferencer):
         for single_input, pred in zip(inputs, preds):
             if isinstance(single_input, str):
                 img_bytes = mmengine.fileio.get(single_input)
-                img = mmcv.imfrombytes(img_bytes)
+                img = mmcv.imfrombytes(img_bytes, backend = "pillow")
+                #print("AAAAA", img)
+                #import pdb; pdb.set_trace()
                 img = img[:, :, ::-1]
                 img_name = osp.basename(single_input)
             elif isinstance(single_input, np.ndarray):

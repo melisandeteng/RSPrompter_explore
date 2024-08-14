@@ -63,6 +63,7 @@ model = dict(
             select_layers=range(1, 13, 2),  #### should be changed when using different pretrain model, base: range(1, 13, 2), large: range(1, 25, 2), huge: range(1, 33, 2)
         ),
     ),
+
     rpn_head=dict(
         type='RPNHead',
         in_channels=256,
@@ -80,6 +81,7 @@ model = dict(
             type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0),
         loss_bbox=dict(type='SmoothL1Loss', loss_weight=1.0)),
     roi_head=dict(
+        type='RSPrompterAnchorRoIPromptHeadDSM',
         bbox_head=dict(
             num_classes=num_classes,
         ),
@@ -199,7 +201,7 @@ find_unused_parameters = True
 resume = False
 load_from = None
 
-base_lr = 0.0002
+base_lr = 0.00001
 max_epochs = 600
 
 train_cfg = dict(max_epochs=max_epochs)

@@ -13,6 +13,10 @@ from mmengine.model import BaseDataPreprocessor, ImgDataPreprocessor
 from mmengine.structures import PixelData
 from mmengine.utils import is_seq_of
 from torch import Tensor
+from typing import Mapping, Optional, Sequence, Union
+from mmengine.structures import BaseDataElement
+from mmengine.utils import is_seq_of
+from mmengine.model.utils import stack_batch
 
 from mmdet.models.utils import unfold_wo_center
 from mmdet.models.utils.misc import samplelist_boxtype2tensor
@@ -120,7 +124,31 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
         self.pad_seg = pad_seg
         self.seg_pad_value = seg_pad_value
         self.boxtype2tensor = boxtype2tensor
+        
+    def cast_data(self, data:dict):
+        """Copying data to the target device.
 
+        Args:
+            data (dict): Data returned by ``DataLoader``.
+
+        Returns:
+            CollatedResult: Inputs and data sample at target device.
+        """
+        if isinstance(data, Mapping):
+            return {key: self.cast_data(data[key]) for key in data}
+        elif isinstance(data, (str, bytes)) or data is None:
+            return data
+        elif isinstance(data, tuple) and hasattr(data, '_fields'):
+            # namedtuple
+            return type(data)(*(self.cast_data(sample) for sample in data))  # type: ignore  # noqa: E501  # yapf:disable
+        elif isinstance(data, Sequence):
+            return type(data)(self.cast_data(sample) for sample in data)  # type: ignore  # noqa: E501  # yapf:disable
+        elif isinstance(data, (torch.Tensor, BaseDataElement)):
+            return data.to(self.device, non_blocking=self._non_blocking)
+        elif isinstance(data, [torch.Tensor, torch.Tensor]):
+            return [u.to(self.device, non_blocking=self._non_blocking) for u in data]
+        else:
+            return data
     def forward(self, data: dict, training: bool = False) -> dict:
         """Perform normalization,padding and bgr2rgb conversion based on
         ``BaseDataPreprocessor``.
@@ -133,16 +161,33 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
             dict: Data in the same format as the model input.
         """
         batch_pad_shape = self._get_pad_shape(data)
-        data = super().forward(data=data, training=training)
+        data = self.cast_data(data)
         
-        data = self.cast_data(data)  # type: ignore
-        _batch_inputs = data['dsm_inputs']
+        inputs, dsm_inputs = data["inputs"]
+        _batch_inputs = dsm_inputs
         
         if is_seq_of(_batch_inputs, torch.Tensor):
             batch_inputs = []
             for _batch_input in _batch_inputs:
                 if self._enable_normalize:
                     _batch_input = (_batch_input - self.mean_dsm) / self.std_dsm
+                batch_inputs.append(_batch_input)
+            batch_inputs = stack_batch(batch_inputs, self.pad_size_divisor,
+                                       self.pad_value)
+
+        else:
+            raise TypeError('Output of `cast_data` should be a dict of '
+                            'list/tuple with inputs and data_samples, '
+                            f'but got {type(data)}: {data}')
+        #TODOOOOOOOO
+        dsm_inputs = batch_inputs
+        _batch_inputs = inputs
+        
+        if is_seq_of(_batch_inputs, torch.Tensor):
+            batch_inputs = []
+            for _batch_input in _batch_inputs:
+                if self._enable_normalize:
+                    _batch_input = (_batch_input - self.mean) / self.std
                 batch_inputs.append(_batch_input)
             batch_inputs = stack_batch(batch_inputs, self.pad_size_divisor,
                                        self.pad_value)
@@ -168,13 +213,17 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
             pad_w = target_w - w
             batch_inputs = F.pad(_batch_inputs, (0, pad_w, 0, pad_h),
                                  'constant', self.pad_value)
+        
         else:
             raise TypeError('Output of `cast_data` should be a dict of '
                             'list/tuple with inputs and data_samples, '
                             f'but got {type(data)}: {data}')
         #TODOOOOOOOO
-        inputs, dsm_inputs, data_samples = data['inputs'], data['dsm_inputs'], data['data_samples']
-        print("input shape", inputs.shape)
+        inputs = batch_inputs
+        
+        data["inputs"] = [inputs, dsm_inputs]
+        inputs_, data_samples = data['inputs'], data['data_samples']
+
         if data_samples is not None:
             # NOTE the batched image size information may be useful, e.g.
             # in DETR, this is needed for the construction of masks, which is
@@ -199,12 +248,12 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
             for batch_aug in self.batch_augments:
                 inputs, data_samples = batch_aug(inputs, data_samples)
 
-        return {'inputs': inputs, 'dsm_inputs': dsm_inputs, 'data_samples': data_samples}
+        return {'inputs': [inputs, dsm_inputs],  'data_samples': data_samples}
 
     def _get_pad_shape(self, data: dict) -> List[tuple]:
         """Get the pad_shape of each image based on data and
         pad_size_divisor."""
-        _batch_inputs = data['inputs']
+        _batch_inputs, _ = data['inputs']
         # Process data with `pseudo_collate`.
         if is_seq_of(_batch_inputs, torch.Tensor):
             batch_pad_shape = []
