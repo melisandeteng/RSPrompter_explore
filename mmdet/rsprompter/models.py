@@ -1260,6 +1260,7 @@ class SAMSegMask2Former(Mask2Former):
                 param.requires_grad = False
 
     def extract_feat(self, batch_inputs: Tensor) -> Tuple[Tensor]:
+        
         vision_outputs = self.backbone(batch_inputs)
         if isinstance(vision_outputs, SamVisionEncoderOutput):
             image_embeddings = vision_outputs.last_hidden_state
@@ -1414,6 +1415,7 @@ class RSPrompterAnchorRoIPromptHead(StandardRoIHead):
                   image_embeddings=None,
                   image_positional_embeddings=None,
                   ) -> dict:
+       
         if not self.share_roi_extractor:
             pos_rois = bbox2roi([res.pos_priors for res in sampling_results])
             if len(pos_rois) == 0:
@@ -1517,7 +1519,7 @@ class RSPrompterAnchorRoIPromptHead(StandardRoIHead):
         image_embeddings=None,
         image_positional_embeddings=None,
         ) -> InstanceList:
-
+       
         # don't need to consider aug_test.
         bboxes = [res.bboxes for res in results_list]
         mask_rois = bbox2roi(bboxes)
@@ -1662,6 +1664,7 @@ class RSPrompterAnchorMaskHead(FCNMaskHead, BaseModule):
                 image_positional_embeddings,
                 roi_img_ids=None,
                 ):
+        #import pdb; pdb.set_trace()
         img_bs = image_embeddings.shape[0]
         roi_bs = x.shape[0]
         image_embedding_size = image_embeddings.shape[-2:]
