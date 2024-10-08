@@ -286,6 +286,7 @@ test_dataloader = val_dataloader
 val_evaluator = dict(
     type='CocoMetric',
     metric=['bbox', 'segm'],
+    classwise=True, 
     format_only=False,
     backend_args=backend_args,
 )
