@@ -1,44 +1,30 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import sys
-sys.path.append(sys.path[0] + '/..')
 import argparse
 import os
 import os.path as osp
-import warnings
-from copy import deepcopy
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from mmengine import ConfigDict
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', "mmdet")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', "mmdet/rsprompter")))
 from mmengine.config import Config, DictAction
+from mmengine.registry import RUNNERS
 from mmengine.runner import Runner
-
-from mmdet.engine.hooks.utils import trigger_visualization_hook
 from mmdet.evaluation import DumpDetResults
-from mmdet.registry import RUNNERS
 from mmdet.utils import setup_cache_size_limit_of_dynamo
+#from mmdet.datasets import ConcatDataset
 
-
-# TODO: support fuse_conv_bn and format_only
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description='MMDet test (and eval) a model')
-    parser.add_argument('config', help='test config file path')
+    parser = argparse.ArgumentParser(description='Train a detector')
+    parser.add_argument('config', help='train config file path')
     parser.add_argument('--checkpoint', help='checkpoint file')
-    parser.add_argument(
-        '--work-dir',
-        help='the directory to save the file containing evaluation metrics')
+    
+    parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
         '--out',
         type=str,
         help='dump predictions to a pickle file for offline evaluation')
-    parser.add_argument(
-        '--show', action='store_true', help='show prediction results')
-    parser.add_argument(
-        '--show-dir',
-        help='directory where painted images will be saved. '
-        'If specified, it will be automatically saved '
-        'to the work_dir/timestamp/show_dir')
-    parser.add_argument(
-        '--wait-time', type=float, default=2, help='the interval of show (s)')
+
     parser.add_argument(
         '--cfg-options',
         nargs='+',
@@ -54,7 +40,6 @@ def parse_args():
         choices=['none', 'pytorch', 'slurm', 'mpi'],
         default='none',
         help='job launcher')
-    parser.add_argument('--tta', action='store_true')
     # When using PyTorch version >= 2.0.0, the `torch.distributed.launch`
     # will pass the `--local-rank` parameter to `tools/train.py` instead
     # of `--local_rank`.
@@ -62,6 +47,7 @@ def parse_args():
     args = parser.parse_args()
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
+
     return args
 
 
@@ -69,15 +55,18 @@ def main():
     args = parse_args()
 
     # Reduce the number of repeated compilations and improve
-    # testing speed.
+    # training speed.
     setup_cache_size_limit_of_dynamo()
 
     # load config
     cfg = Config.fromfile(args.config)
+    
+    cfg.load_from = args.checkpoint
+    
     cfg.launcher = args.launcher
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
-
+  
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None
@@ -87,46 +76,24 @@ def main():
         cfg.work_dir = osp.join('./work_dirs',
                                 osp.splitext(osp.basename(args.config))[0])
 
-    cfg.load_from = args.checkpoint
+    # enable automatic-mixed-precision training
+    #if args.amp is True:
+    #    cfg.optim_wrapper.type = 'AmpOptimWrapper'
+    #    cfg.optim_wrapper.loss_scale = 'dynamic'
 
-    if args.show or args.show_dir:
-        cfg = trigger_visualization_hook(cfg, args)
-
-    if args.tta:
-
-        if 'tta_model' not in cfg:
-            warnings.warn('Cannot find ``tta_model`` in config, '
-                          'we will set it as default.')
-            cfg.tta_model = dict(
-                type='DetTTAModel',
-                tta_cfg=dict(
-                    nms=dict(type='nms', iou_threshold=0.5), max_per_img=100))
-        if 'tta_pipeline' not in cfg:
-            warnings.warn('Cannot find ``tta_pipeline`` in config, '
-                          'we will set it as default.')
-            test_data_cfg = cfg.test_dataloader.dataset
-            while 'dataset' in test_data_cfg:
-                test_data_cfg = test_data_cfg['dataset']
-            cfg.tta_pipeline = deepcopy(test_data_cfg.pipeline)
-            flip_tta = dict(
-                type='TestTimeAug',
-                transforms=[
-                    [
-                        dict(type='RandomFlip', prob=1.),
-                        dict(type='RandomFlip', prob=0.)
-                    ],
-                    [
-                        dict(
-                            type='PackDetInputs',
-                            meta_keys=('img_id', 'img_path', 'ori_shape',
-                                       'img_shape', 'scale_factor', 'flip',
-                                       'flip_direction'))
-                    ],
-                ])
-            cfg.tta_pipeline[-1] = flip_tta
-        cfg.model = ConfigDict(**cfg.tta_model, module=cfg.model)
-        cfg.test_dataloader.dataset.pipeline = cfg.tta_pipeline
-
+    # enable automatically scaling LR
+    """if args.auto_scale_lr:
+        if 'auto_scale_lr' in cfg and \
+                'enable' in cfg.auto_scale_lr and \
+                'base_batch_size' in cfg.auto_scale_lr:
+            cfg.auto_scale_lr.enable = True
+        else:
+            raise RuntimeError('Can not find "auto_scale_lr" or '
+                               '"auto_scale_lr.enable" or '
+                               '"auto_scale_lr.base_batch_size" in your'
+                               ' configuration file.')
+    
+    """
     # build the runner from config
     if 'runner_type' not in cfg:
         # build the default runner
@@ -135,15 +102,14 @@ def main():
         # build customized runner from the registry
         # if 'runner_type' is set in the cfg
         runner = RUNNERS.build(cfg)
-
-    # add `DumpResults` dummy metric
+        
     if args.out is not None:
         assert args.out.endswith(('.pkl', '.pickle')), \
             'The dump file must be a pkl file.'
         runner.test_evaluator.metrics.append(
             DumpDetResults(out_file_path=args.out))
-
-    # start testing
+            
+    # start training
     runner.test()
 
 

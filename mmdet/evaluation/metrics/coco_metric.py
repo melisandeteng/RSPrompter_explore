@@ -1,4 +1,4 @@
-# Copyright (c) OpenMMLab. All rights reserved.
+# Copyrights (c) OpenMMLab. All rights reserved.
 import datetime
 import itertools
 import os.path as osp
@@ -359,7 +359,11 @@ class CocoMetric(BaseMetric):
             result['img_id'] = data_sample['img_id']
             result['bboxes'] = pred['bboxes'].cpu().numpy()
             result['scores'] = pred['scores'].cpu().numpy()
-            result['labels'] = pred['labels'].cpu().numpy()
+            result['labels'] = pred['labels'].cpu()
+            #for single class metric
+            #result['labels']= torch.zeros_like(result['labels']).numpy()
+            result['labels']=result["labels"].numpy()
+            
             # encode mask to RLE
             if 'masks' in pred:
                 result['masks'] = encode_mask_results(
@@ -378,6 +382,9 @@ class CocoMetric(BaseMetric):
                     anns = []
                     gt_instances = data_sample['gt_instances']
                     gt_labels = gt_instances['labels'].cpu().numpy()
+                    #for single class metric
+                    #gt_labels = torch.zeros_like(gt_labels).numpy()
+                    
                     gt_bboxes = gt_instances['bboxes'].cpu().numpy()
                     gt_masks = encode_mask_results(gt_instances['masks'])
                     for bbox, mask, label in zip(gt_bboxes, gt_masks, gt_labels):

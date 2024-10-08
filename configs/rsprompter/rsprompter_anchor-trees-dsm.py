@@ -3,7 +3,7 @@ _base_ = ['_base_/rsprompter_anchor.py']
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
 
-work_dir = '/network/scratch/t/tengmeli/RSPrompter_exps'
+work_dir = '/network/scratch/t/tengmeli/RSPrompter_exps_dsm/dsmxing_input_layernorm_new_maxnorm'
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
@@ -15,7 +15,7 @@ default_hooks = dict(
 )
 
 vis_backends = [dict(type='LocalVisBackend'),
-                #dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees', group='rsprompter-anchor', name='rsprompter-anchor-trees-distrib'))
+                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-quebec', group='rsprompter-anchor', name='dsmximg_data_rsprompter_max_norm_pertile'))
                 ]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -149,12 +149,11 @@ test_pipeline = [
      )
 ]
 
-
 train_datasets_list = [
     dict(
         type=dataset_type,
         data_root='',
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_train.json",
+        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_train_new.json",
         #data_prefix=dict(img='tiles/'),
         pipeline=train_pipeline,
 ), 
@@ -178,7 +177,7 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root="",
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_val.json",
+        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_val_new.json",
         #data_prefix=dict(img='tiles/'),
         pipeline =test_pipeline
     )
@@ -190,11 +189,10 @@ test_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root="",
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_test.json",
+        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_test_new.json",
         pipeline =test_pipeline
     )
 )
-
 
 find_unused_parameters = True
 
@@ -220,7 +218,13 @@ param_scheduler = [
 ]
 
 
-
+test_evaluator = dict(
+    type='CocoMetric',
+    metric=['bbox', 'segm'],
+    classwise=False, 
+    format_only=False,
+    backend_args=None,
+)
                         
 #### AMP training config
 runner_type = 'Runner'
@@ -266,4 +270,3 @@ optim_wrapper = dict(
 #         weight_decay=0.05
 #     )
 # )
-

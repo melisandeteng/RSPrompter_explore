@@ -169,8 +169,9 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
         if is_seq_of(_batch_inputs, torch.Tensor):
             batch_inputs = []
             for _batch_input in _batch_inputs:
-                if self._enable_normalize:
-                    _batch_input = (_batch_input - self.mean_dsm) / self.std_dsm
+                #if self._enable_normalize:
+                _batch_input = _batch_input / _batch_input.max() 
+                    #(_batch_input - self.mean_dsm) / self.std_dsm
                 batch_inputs.append(_batch_input)
             batch_inputs = stack_batch(batch_inputs, self.pad_size_divisor,
                                        self.pad_value)
@@ -181,6 +182,7 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
                             f'but got {type(data)}: {data}')
         #TODOOOOOOOO
         dsm_inputs = batch_inputs
+        
         _batch_inputs = inputs
         
         if is_seq_of(_batch_inputs, torch.Tensor):

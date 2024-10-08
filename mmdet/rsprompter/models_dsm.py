@@ -28,6 +28,20 @@ import torch.nn.functional as F
 
 from mmpretrain.models import LayerNorm2d
 
+
+class LayerNorm2d(nn.Module):
+    def __init__(self, num_channels: int, eps: float = 1e-6) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(num_channels))
+        self.bias = nn.Parameter(torch.zeros(num_channels))
+        self.eps = eps
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        u = x.mean(1, keepdim=True)
+        s = (x - u).pow(2).mean(1, keepdim=True)
+        x = (x - u) / torch.sqrt(s + self.eps)
+        x = self.weight[:, None, None] * x + self.bias[:, None, None]
+        return x
     
 @MODELS.register_module()
 class RSPrompterAnchorDSM(MaskRCNN):
@@ -42,11 +56,24 @@ class RSPrompterAnchorDSM(MaskRCNN):
         self.shared_image_embedding = MODELS.build(shared_image_embedding)
         self.decoder_freeze = decoder_freeze
         
-        self.backbone_dsm =  nn.Sequential(nn.Conv2d(1, 768, kernel_size=(16, 16), stride=(16, 16)), nn.Conv2d(768, 256, kernel_size=(1, 1)))
-        #nn.Sequential(
-        #    nn.Conv2d(1, 768, kernel_size=(16, 16), stride=(16, 16)),
-        #     nn.Conv2d(out_channels, out_channels, 3, padding=1)
-        #                                )
+        mask_in_chans = 768
+        embed_dim=256
+        self.backbone_dsm = nn.Sequential(
+            nn.Conv2d(1, mask_in_chans // 4, kernel_size=(2,2), stride=(2,2)),
+            LayerNorm2d(mask_in_chans// 4),
+            nn.GELU(),
+            nn.Conv2d(mask_in_chans // 4, mask_in_chans, kernel_size=8, stride=8),
+            LayerNorm2d(mask_in_chans),
+            nn.GELU(),
+            nn.Conv2d(mask_in_chans, embed_dim, kernel_size=1),
+        )
+        
+        #self.backbone_dsm =  nn.Sequential(
+        #    nn.Conv2d(1, 768, kernel_size=(16, 16), stride=(16, 16)), 
+        #    nn.Conv2d(768, 256, kernel_size=(1, 1)),
+        #    nn.BatchNorm2d(256)
+        #)
+
         
         self.frozen_modules = []
         if peft_config is None:
@@ -80,10 +107,10 @@ class RSPrompterAnchorDSM(MaskRCNN):
         return positional_embedding.permute(2, 0, 1).unsqueeze(0)  # channel x height x width
 
     def extract_feat(self, batch_inputs) -> Tuple[Tensor]:
-        
+        #import pdb; pdb.set_trace()
         im_inputs, dsm_inputs =  batch_inputs
         
-        vision_outputs = self.backbone(im_inputs)
+        vision_outputs = self.backbone(im_inputs * dsm_inputs)
         dsm_outputs = self.backbone_dsm(dsm_inputs)
         
         if isinstance(vision_outputs, SamVisionEncoderOutput):
@@ -228,6 +255,7 @@ class RSPrompterAnchorRoIPromptHeadDSM(StandardRoIHead):
                   image_embeddings=None,
                   image_positional_embeddings=None,
                   ) -> dict:
+       
         if not self.share_roi_extractor:
             pos_rois = bbox2roi([res.pos_priors for res in sampling_results])
             if len(pos_rois) == 0:
@@ -333,7 +361,7 @@ class RSPrompterAnchorRoIPromptHeadDSM(StandardRoIHead):
         image_embeddings=None,
         image_positional_embeddings=None,
         ) -> InstanceList:
-
+        #import pdb; pdb.set_trace()
         # don't need to consider aug_test.
         bboxes = [res.bboxes for res in results_list]
         mask_rois = bbox2roi(bboxes)
@@ -483,6 +511,7 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
                 image_positional_embeddings,
                 roi_img_ids=None,
                 ):
+        #import pdb; pdb.set_trace()
         img_bs = image_embeddings.shape[0]
         roi_bs = x.shape[0]
         image_embedding_size = image_embeddings.shape[-2:]
@@ -491,24 +520,30 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
         point_embedings = einops.rearrange(point_embedings, 'b (n c) -> b n c', n=self.per_pointset_point)
         if self.with_sincos:
             point_embedings = torch.sin(point_embedings[..., ::2]) + point_embedings[..., 1::2]
-
+        
         # (B * N_set), N_point, C
         sparse_embeddings = point_embedings.unsqueeze(1)
         num_roi_per_image = torch.bincount(roi_img_ids.long())
         # deal with the case that there is no roi in an image
         num_roi_per_image = torch.cat([num_roi_per_image, torch.zeros(img_bs - len(num_roi_per_image), device=num_roi_per_image.device, dtype=num_roi_per_image.dtype)])
-
+        
         dense_embeddings = self.no_mask_embed.weight.reshape(1, -1, 1, 1).expand(roi_bs, -1, image_embedding_size[0], image_embedding_size[1])
+        
+        #dense_embeddings = dense_embeddings
+        
+        dsm_x = dsm_x.repeat_interleave(num_roi_per_image, dim=0)
+        
         # get image embeddings with num_roi_per_image
-        image_embeddings = torch.multiply(image_embeddings ,dsm_x)
+        image_embeddings = image_embeddings 
         image_embeddings = image_embeddings.repeat_interleave(num_roi_per_image, dim=0)
+        
         image_positional_embeddings = image_positional_embeddings.repeat_interleave(num_roi_per_image, dim=0)
 
         low_res_masks, iou_predictions, mask_decoder_attentions = self.mask_decoder(
-            image_embeddings=image_embeddings,
+            image_embeddings=image_embeddings * dsm_x,
             image_positional_embeddings=image_positional_embeddings,
             sparse_prompt_embeddings=sparse_embeddings,
-            dense_prompt_embeddings=dense_embeddings,
+            dense_prompt_embeddings=dsm_x, #dense_embeddings+dsm_x,
             multimask_output=self.multimask_output,
             attention_similarity=self.attention_similarity,
             target_embedding=self.target_embedding,
