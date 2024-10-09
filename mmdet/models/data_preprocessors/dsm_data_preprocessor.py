@@ -17,7 +17,7 @@ from typing import Mapping, Optional, Sequence, Union
 from mmengine.structures import BaseDataElement
 from mmengine.utils import is_seq_of
 from mmengine.model.utils import stack_batch
-
+import math
 from mmdet.models.utils import unfold_wo_center
 from mmdet.models.utils.misc import samplelist_boxtype2tensor
 from mmdet.registry import MODELS
@@ -82,8 +82,7 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
     def __init__(self,
                  mean: Sequence[Number] = None,
                  std: Sequence[Number] = None,
-                 mean_dsm: Sequence[Number]= None, 
-                 std_dsm: Sequence[Number]= None,
+                 dsm_norm: str = "max",
                  pad_size_divisor: int = 1,
                  pad_value: Union[float, int] = 0,
                  pad_mask: bool = False,
@@ -103,17 +102,7 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
             bgr_to_rgb=bgr_to_rgb,
             rgb_to_bgr=rgb_to_bgr,
             non_blocking=non_blocking)
-        if mean_dsm is not None:
-            assert  len(mean_dsm) == 1, (
-                '`mean dsm` should have 1 valie, to be compatible with '
-                f' gray image, but got {len(mean)} values')
-            assert len(std_dsm) == 1, (  # type: ignore
-                '`std_dsm` should have 1 value, to be compatible with '  # type: ignore # noqa: E501
-                f'or gray image, but got {len(std)} values')  # type: ignore
-            self.register_buffer('mean_dsm',
-                                 torch.tensor(mean_dsm).view(-1, 1, 1), False)
-            self.register_buffer('std_dsm',
-                                 torch.tensor(std_dsm).view(-1, 1, 1), False)
+       
         if batch_augments is not None:
             self.batch_augments = nn.ModuleList(
                 [MODELS.build(aug) for aug in batch_augments])
@@ -124,6 +113,7 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
         self.pad_seg = pad_seg
         self.seg_pad_value = seg_pad_value
         self.boxtype2tensor = boxtype2tensor
+        self.dsm_norm = dsm_norm
         
     def cast_data(self, data:dict):
         """Copying data to the target device.
@@ -149,6 +139,22 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
             return [u.to(self.device, non_blocking=self._non_blocking) for u in data]
         else:
             return data
+        
+    def normalize_dsm(self, dsm):
+        if self.dsm_norm=="max":
+            dsm = dsm/dsm.max()
+        elif self.dsm_norm=="minmax":
+            dsm = dsm-dsm.min()/dsm.max()-dsm.min()
+        elif self.dsm_norm == "gradient":
+            dsm = torch.gradient(dsm, dim=-1)[0]
+            #if len(dsm.shape)==2:
+            #    dsm = torch.gradient(dsm, dim=-1)
+            #elif len(dsm.shape) == 3:
+            #    dsm = torch.Tensor([torch.gradient(dsm_, dim=-1) for dsm_ in dsm])
+        else:
+            raise ValueError("DSM normalization not supported")
+        return(dsm)
+
     def forward(self, data: dict, training: bool = False) -> dict:
         """Perform normalization,padding and bgr2rgb conversion based on
         ``BaseDataPreprocessor``.
@@ -164,14 +170,13 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
         data = self.cast_data(data)
         
         inputs, dsm_inputs = data["inputs"]
-        _batch_inputs = dsm_inputs
         
-        if is_seq_of(_batch_inputs, torch.Tensor):
+    
+        if is_seq_of(dsm_inputs, torch.Tensor):
             batch_inputs = []
-            for _batch_input in _batch_inputs:
-                #if self._enable_normalize:
-                _batch_input = _batch_input / _batch_input.max() 
-                    #(_batch_input - self.mean_dsm) / self.std_dsm
+            for _batch_input in dsm_inputs:
+        
+                _batch_input = self.normalize_dsm(_batch_input)
                 batch_inputs.append(_batch_input)
             batch_inputs = stack_batch(batch_inputs, self.pad_size_divisor,
                                        self.pad_value)

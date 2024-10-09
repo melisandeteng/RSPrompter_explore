@@ -81,7 +81,8 @@ class CocoMetric(BaseMetric):
                  collect_device: str = 'cpu',
                  prefix: Optional[str] = None,
                  sort_categories: bool = False,
-                 use_mp_eval: bool = False) -> None:
+                 use_mp_eval: bool = False,
+                 single_class: bool=False) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
         # coco evaluation metrics
         self.metrics = metric if isinstance(metric, list) else [metric]
@@ -96,6 +97,9 @@ class CocoMetric(BaseMetric):
         self.classwise = classwise
         # whether to use multi processing evaluation, default False
         self.use_mp_eval = use_mp_eval
+
+        #single class: whether we consider the one class trees or different classes of tree species
+        self.single_class=single_class
 
         # proposal_nums used to compute recall or precision.
         self.proposal_nums = list(proposal_nums)
@@ -361,7 +365,8 @@ class CocoMetric(BaseMetric):
             result['scores'] = pred['scores'].cpu().numpy()
             result['labels'] = pred['labels'].cpu()
             #for single class metric
-            #result['labels']= torch.zeros_like(result['labels']).numpy()
+            if self.single_class:
+                result['labels']= torch.zeros_like(result['labels'])
             result['labels']=result["labels"].numpy()
             
             # encode mask to RLE
@@ -381,10 +386,11 @@ class CocoMetric(BaseMetric):
             if self._coco_api is None:
                     anns = []
                     gt_instances = data_sample['gt_instances']
-                    gt_labels = gt_instances['labels'].cpu().numpy()
+                    gt_labels = gt_instances['labels'].cpu()
                     #for single class metric
-                    #gt_labels = torch.zeros_like(gt_labels).numpy()
-                    
+                    if self.single_class:
+                        gt_labels= torch.zeros_like(gt_labels)
+                    gt_labels = gt_labels.numpy()
                     gt_bboxes = gt_instances['bboxes'].cpu().numpy()
                     gt_masks = encode_mask_results(gt_instances['masks'])
                     for bbox, mask, label in zip(gt_bboxes, gt_masks, gt_labels):

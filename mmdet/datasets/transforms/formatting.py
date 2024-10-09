@@ -49,7 +49,11 @@ class PackDetInputs(BaseTransform):
 
     def __init__(self,
                  meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                            'scale_factor', 'flip', 'flip_direction')):
+                            'scale_factor', 'flip', 'flip_direction'),
+                ):
+        """
+        dsm_norm: how to normalize the DSM per image (minmax, gradient or max)
+        """
         self.meta_keys = meta_keys
 
     def transform(self, results: dict) -> dict:
@@ -88,6 +92,8 @@ class PackDetInputs(BaseTransform):
             dsm = results['dsm']
             if len(dsm.shape) < 3:
                 dsm = np.expand_dims(dsm, -1)
+            
+           
             # To improve the computational speed by by 3-5 times, apply:
             # If image is not contiguous, use
             # `numpy.transpose()` followed by `numpy.ascontiguousarray()`
