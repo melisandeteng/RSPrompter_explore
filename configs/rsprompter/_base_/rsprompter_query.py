@@ -1,3 +1,6 @@
+from mmengine.config import read_base
+
+
 work_dir = './work_dirs/rsprompter/rsprompter-query'
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
@@ -202,7 +205,7 @@ model = dict(
 )
 
 # dataset settings
-dataset_type = 'WHUInsSegDataset'
+dataset_type = 'TreesInsSegDataset'
 code_root = '/mnt/home/xx/codes/RSPrompter'
 data_root = '/mnt/home/xx/data/WHU'
 

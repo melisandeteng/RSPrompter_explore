@@ -3,8 +3,8 @@ _base_ = ['_base_/rsprompter_anchor.py']
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
 
-work_dir = '/network/scratch/t/tengmeli/RSPrompter_exps_new_dataset'
-
+work_dir = '/network/scratch/t/tengmeli/RSPrompter_exps_no_dsm_revised_ckptloading'
+crop_size = (1024, 1024)
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
     logger=dict(type='LoggerHook', interval=10),
@@ -15,7 +15,7 @@ default_hooks = dict(
 )
 
 vis_backends = [dict(type='LocalVisBackend'),
-                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-quebec', group='rsprompter-anchor', name='rsprompter-anchor-trees-without-dsm'))
+                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-quebec', group='rsprompter-anchor', name='rsprompter-anchor-trees-without-dsm-revised'))
                 ]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -29,18 +29,32 @@ hf_sam_pretrain_name = "/network/projects/trees-co2/RSPrompter/sam_vit_base"
 # huggingface model name, e.g. facebook/sam-vit-base
 # or local repo path, e.g. work_dirs/sam_cache/sam_vit_base
 hf_sam_pretrain_ckpt_path = "/network/projects/trees-co2/RSPrompter/sam_vit_base/pytorch_model.bin"
-
+data_preprocessor = dict(
+    type='DetDataPreprocessor',
+    mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
+    std=[0.229 * 255, 0.224 * 255, 0.225 * 255],
+    bgr_to_rgb=True,
+    pad_mask=False, #True,
+    pad_size_divisor=32,
+    #batch_augments=batch_augments
+    
+)
 
 model = dict(
+    type='RSPrompterAnchor',
+    data_preprocessor=data_preprocessor,
     decoder_freeze=False,
     shared_image_embedding=dict(
+        type='RSSamPositionalEmbedding',
         hf_pretrain_name=hf_sam_pretrain_name,
         init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path),
     ),
     backbone=dict(
+        type='RSSamVisionEncoder',
         hf_pretrain_name=hf_sam_pretrain_name,
-        init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)
-    ),
+        extra_config=dict(output_hidden_states=True),
+        init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)),
+
     neck=dict(
         feature_aggregator=dict(
             in_channels=hf_sam_pretrain_name,
@@ -48,19 +62,117 @@ model = dict(
             select_layers=range(1, 13, 2),  #### should be changed when using different pretrain model, base: range(1, 13, 2), large: range(1, 25, 2), huge: range(1, 33, 2)
         ),
     ),
+    rpn_head=dict(
+        type='RPNHead',
+        in_channels=256,
+        feat_channels=256,
+        anchor_generator=dict(
+            type='AnchorGenerator',
+            scales=[4, 8],
+            ratios=[0.5, 1.0, 2.0],
+            strides=[4, 8, 16, 32, 64]),
+        bbox_coder=dict(
+            type='DeltaXYWHBBoxCoder',
+            target_means=[.0, .0, .0, .0],
+            target_stds=[1.0, 1.0, 1.0, 1.0]),
+        loss_cls=dict(
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0),
+        loss_bbox=dict(type='SmoothL1Loss', loss_weight=1.0)),
     roi_head=dict(
+        type='RSPrompterAnchorRoIPromptHead',
+        with_extra_pe=True,
+        bbox_roi_extractor=dict(
+            type='SingleRoIExtractor',
+            roi_layer=dict(type='RoIAlign', output_size=7, sampling_ratio=0),
+            out_channels=256,
+            featmap_strides=[4, 8, 16, 32]),
         bbox_head=dict(
+            type='Shared2FCBBoxHead',
+            in_channels=256,
+            fc_out_channels=1024,
+            roi_feat_size=7,
             num_classes=num_classes,
-        ),
+            bbox_coder=dict(
+                type='DeltaXYWHBBoxCoder',
+                target_means=[0., 0., 0., 0.],
+                target_stds=[0.1, 0.1, 0.2, 0.2]),
+            reg_class_agnostic=False,
+            loss_cls=dict(
+                type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+            loss_bbox=dict(type='SmoothL1Loss', loss_weight=1.0)),
+        mask_roi_extractor=dict(
+            type='SingleRoIExtractor',
+            roi_layer=dict(type='RoIAlign', output_size=14, sampling_ratio=0),
+            out_channels=256,
+            featmap_strides=[4, 8, 16, 32]),
         mask_head=dict(
+            type='RSPrompterAnchorMaskHead',
             mask_decoder=dict(
+                type='RSSamMaskDecoder',
                 hf_pretrain_name=hf_sam_pretrain_name,
-                init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)
-            ),
+                init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)),
+            in_channels=256,
+            roi_feat_size=14,
             per_pointset_point=prompt_shape[1],
             with_sincos=True,
-        ),
-    ),
+            multimask_output=False,
+            class_agnostic=True,
+            loss_mask=dict(
+                type='CrossEntropyLoss', use_mask=True, loss_weight=1.0))),
+    # model training and testing settings
+    train_cfg=dict(
+        rpn=dict(
+            assigner=dict(
+                type='MaxIoUAssigner',
+                pos_iou_thr=0.7,
+                neg_iou_thr=0.3,
+                min_pos_iou=0.3,
+                match_low_quality=True,
+                ignore_iof_thr=-1),
+            sampler=dict(
+                type='RandomSampler',
+                num=256,
+                pos_fraction=0.5,
+                neg_pos_ub=-1,
+                add_gt_as_proposals=False),
+            allowed_border=-1,
+            pos_weight=-1,
+            debug=False),
+        rpn_proposal=dict(
+            nms_pre=2000,
+            max_per_img=1000,
+            nms=dict(type='nms', iou_threshold=0.7),
+            min_bbox_size=0),
+        rcnn=dict(
+            assigner=dict(
+                type='MaxIoUAssigner',
+                pos_iou_thr=0.5,
+                neg_iou_thr=0.5,
+                min_pos_iou=0.5,
+                match_low_quality=True,
+                ignore_iof_thr=-1),
+            sampler=dict(
+                type='RandomSampler',
+                num=256,
+                pos_fraction=0.25,
+                neg_pos_ub=-1,
+                add_gt_as_proposals=True),
+            mask_size=crop_size,
+            pos_weight=-1,
+            debug=False)),
+    test_cfg=dict(
+        rpn=dict(
+            nms_pre=1000,
+            max_per_img=1000,
+            nms=dict(type='nms', iou_threshold=0.7),
+            min_bbox_size=0),
+        rcnn=dict(
+            score_thr=0.05,
+            nms=dict(type='nms', iou_threshold=0.5),
+            max_per_img=100,
+            mask_thr_binary=0.5)
+    )
+    
 )
 
 dataset_type = "TreesInsSegDataset"
@@ -178,21 +290,41 @@ param_scheduler = [
 
 backend_args = None
 
-val_evaluator = dict(
+val_evaluator = [dict(
     type='CocoMetric',
     metric=['bbox', 'segm'],
     classwise=True, 
     format_only=False,
     backend_args=backend_args,
-)
-
-test_evaluator = dict(
+    single_class=False
+), 
+dict(
     type='CocoMetric',
     metric=['bbox', 'segm'],
-    classwise=False, 
+    classwise=True, 
     format_only=False,
     backend_args=backend_args,
+    single_class=True
 )
+]
+
+test_evaluator = [dict(
+    type='CocoMetric',
+    metric=['bbox', 'segm'],
+    classwise=True, 
+    format_only=False,
+    backend_args=backend_args,
+    single_class=False
+), 
+dict(
+    type='CocoMetric',
+    metric=['bbox', 'segm'],
+    classwise=True, 
+    format_only=False,
+    backend_args=backend_args,
+    single_class=True
+)
+]
 
 #### AMP training config
 runner_type = 'Runner'

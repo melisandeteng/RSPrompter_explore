@@ -3,19 +3,19 @@ _base_ = ['_base_/rsprompter_anchor.py']
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
 
-work_dir = '/network/scratch/t/tengmeli/RSPrompter_exps_dsm/dsmxing_input_layernorm_new_maxnorm'
+work_dir = '/network/scratch/t/tengmeli/RSPrompter_exps_dsm/dsmxing_input_dsmnorm_'
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
     logger=dict(type='LoggerHook', interval=10),
     param_scheduler=dict(type='ParamSchedulerHook'),
-    checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=4, save_best='coco/bbox_mAP', rule='greater', save_last=True),
+    checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=4, save_best='coco/segm_mAP', rule='greater', save_last=True),
     sampler_seed=dict(type='DistSamplerSeedHook'),
-    visualization=dict(type='DetVisualizationHook', draw=True, interval=1, test_out_dir='vis_data', score_thr=0.3)
+    visualization=dict(type='DetVisualizationHook', draw=True, interval=3, test_out_dir='vis_data', score_thr=0.3)
 )
 
 vis_backends = [dict(type='LocalVisBackend'),
-                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-quebec', group='rsprompter-anchor', name='dsmximg_data_rsprompter_max_norm_pertile'))
+                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-quebec', group='rsprompter-anchor', name='dsmximg_data_rsprompter_gradient_norm_pertile_2reivsed'))
                 ]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -33,8 +33,7 @@ data_preprocessor = dict(
     type='DSMDetDataPreprocessor',
     mean=[0.485 * 255, 0.456 * 255, 0.406 * 255], #imgnet rgb
     std=[0.229 * 255, 0.224 * 255, 0.225 * 255],
-    mean_dsm=[75.],
-    std_dsm = [20.], 
+    dsm_norm="gradient",
     bgr_to_rgb=False,
     pad_mask=False, #True,
     pad_size_divisor=32,
@@ -48,13 +47,16 @@ model = dict(
     data_preprocessor=data_preprocessor,
     decoder_freeze=False,
     shared_image_embedding=dict(
+        type='RSSamPositionalEmbedding',
         hf_pretrain_name=hf_sam_pretrain_name,
         init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path),
     ),
     backbone=dict(
+        type='RSSamVisionEncoder',
         hf_pretrain_name=hf_sam_pretrain_name,
-        init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)
-    ),
+        extra_config=dict(output_hidden_states=True),
+        init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)),
+    
 
     neck=dict(
         feature_aggregator=dict(
@@ -80,6 +82,7 @@ model = dict(
         loss_cls=dict(
             type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0),
         loss_bbox=dict(type='SmoothL1Loss', loss_weight=1.0)),
+    
     roi_head=dict(
         type='RSPrompterAnchorRoIPromptHeadDSM',
         bbox_head=dict(
@@ -91,12 +94,13 @@ model = dict(
             roi_layer=dict(type='RoIAlign', output_size=14, sampling_ratio=0),
             out_channels=256,
             featmap_strides=[4, 8, 16, 32]),
+        
         mask_head=dict(
             type='RSPrompterAnchorMaskHeadDSM',
             mask_decoder=dict(
+                type='RSSamMaskDecoder',
                 hf_pretrain_name=hf_sam_pretrain_name,
-                init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)
-            ),
+                init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)),
             per_pointset_point=prompt_shape[1],
             with_sincos=True,
         ),
@@ -218,13 +222,23 @@ param_scheduler = [
 ]
 
 
-test_evaluator = dict(
+test_evaluator = [dict(
     type='CocoMetric',
-    metric=['bbox', 'segm'],
+    metric=['segm'],
+    classwise=True, 
+    format_only=False,
+    backend_args=None,
+    single_class=False
+), 
+dict(
+    type='CocoMetric',
+    metric=[ 'segm'],
     classwise=False, 
     format_only=False,
     backend_args=None,
+    single_class=True
 )
+]
                         
 #### AMP training config
 runner_type = 'Runner'
