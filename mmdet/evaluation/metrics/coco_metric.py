@@ -85,6 +85,7 @@ class CocoMetric(BaseMetric):
                  single_class: bool=False) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
         # coco evaluation metrics
+        
         self.metrics = metric if isinstance(metric, list) else [metric]
         allowed_metrics = ['bbox', 'segm', 'proposal', 'proposal_fast']
         for metric in self.metrics:
@@ -100,7 +101,10 @@ class CocoMetric(BaseMetric):
 
         #single class: whether we consider the one class trees or different classes of tree species
         self.single_class=single_class
-
+        if self.single_class:
+            if self.dataset_meta is None:
+                self.dataset_meta = {}
+            self.dataset_meta['classes'] = ["trees"]
         # proposal_nums used to compute recall or precision.
         self.proposal_nums = list(proposal_nums)
 
