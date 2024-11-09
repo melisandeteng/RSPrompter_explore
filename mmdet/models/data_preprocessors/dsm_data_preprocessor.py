@@ -146,7 +146,7 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
         elif self.dsm_norm=="minmax":
             dsm = dsm-dsm.min()/dsm.max()-dsm.min()
         elif self.dsm_norm == "gradient":
-            dsm = torch.gradient(dsm, dim=-1)[0]
+            dsm = 0.5*(torch.gradient(dsm, dim=-1)[0] + torch.gradient(dsm, dim=-2)[0])
             #if len(dsm.shape)==2:
             #    dsm = torch.gradient(dsm, dim=-1)
             #elif len(dsm.shape) == 3:
@@ -171,8 +171,9 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
         
         inputs, dsm_inputs = data["inputs"]
         
-    
+
         if is_seq_of(dsm_inputs, torch.Tensor):
+            print("length DSM inputs", len(dsm_inputs))
             batch_inputs = []
             for _batch_input in dsm_inputs:
         
