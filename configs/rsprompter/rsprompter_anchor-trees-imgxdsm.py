@@ -3,7 +3,7 @@ _base_ = ['_base_/rsprompter_anchor.py']
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
 
-work_dir = '/network/scratch/t/tengmeli/RSPrompter_clean/rsprompter_anchor_trees_dsm'
+work_dir = '/network/scratch/t/tengmeli/RSPrompter_clean/rsprompter_anchor_trees_imgxdsm'
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
@@ -11,10 +11,11 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=2, save_best='coco/segm_mAP', rule='greater', save_last=True),
     sampler_seed=dict(type='DistSamplerSeedHook'),
+    #visualization=dict(type='DetVisualizationHook', draw=True, interval=5, test_out_dir='vis_data', score_thr=0.3)
 )
 
-vis_backends = [
-                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-clean', group='rsprompter-anchor', name='rsprompter_dsm_gradient',resume="allow", id="rsprompter_dsm_gradient"))
+vis_backends = [#dict(type='LocalVisBackend'),
+                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-clean', group='rsprompter-anchor', name='rsprompter_imgxdsm_gradient', resume="allow", id="rsprompter_imgxdsm_gradient"))
                 ]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -36,6 +37,7 @@ data_preprocessor = dict(
     bgr_to_rgb=False,
     pad_mask=False, #True,
     pad_size_divisor=32,
+    #batch_augments=batch_augments
 
 )
 
@@ -102,7 +104,7 @@ model = dict(
                 init_cfg=dict(type='Pretrained', checkpoint=hf_sam_pretrain_ckpt_path)),
             per_pointset_point=prompt_shape[1],
             with_sincos=True,
-            dsm_modulated_image = False, 
+            dsm_modulated_image = True, 
             ),
             
         )
@@ -156,6 +158,8 @@ test_pipeline = [
 ]
 
 
+#train_dataset = ConcatDatasetTrees(train_datasets_list)
+        
 train_dataloader = dict(
     batch_size=batch_size_per_gpu,
     num_workers=num_workers,

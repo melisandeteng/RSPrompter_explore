@@ -3,19 +3,19 @@ _base_ = ['_base_/rsprompter_anchor.py']
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
 
-work_dir = '/network/scratch/t/tengmeli/RSPrompter_exps_no_dsm_revised_ckptloading'
+work_dir = '/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees'
 crop_size = (1024, 1024)
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
     logger=dict(type='LoggerHook', interval=10),
     param_scheduler=dict(type='ParamSchedulerHook'),
-    checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=4, save_best='coco/bbox_mAP', rule='greater', save_last=True),
+    checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=2, save_best='coco/bbox_mAP', rule='greater', save_last=True),
     sampler_seed=dict(type='DistSamplerSeedHook'),
-    visualization=dict(type='DetVisualizationHook', draw=True, interval=1, test_out_dir='vis_data', score_thr=0.3)
+    #visualization=dict(type='DetVisualizationHook', draw=True, interval=5, test_out_dir='vis_data', score_thr=0.3)
 )
 
-vis_backends = [dict(type='LocalVisBackend'),
-                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-quebec', group='rsprompter-anchor', name='rsprompter-anchor-trees-without-dsm-revised'))
+vis_backends = [#dict(type='LocalVisBackend'),
+               dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-clean', group='rsprompter-anchor', name='rsprompter-vanilla-without-dsm-seed0'))
                 ]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -186,7 +186,8 @@ persistent_workers = True
 train_pipeline = [
     dict(type='LoadImageFromFile',  channel_order="rgb",to_float32=True),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=True),
-    dict(type='RandomFlip', prob=0.5),
+    dict(type='RandomFlip', prob=0.5, direction='horizontal'),
+    dict(type='RandomFlip', prob=0.5, direction='vertical'),
     # large scale jittering
     #dict(
     #    type='RandomResize',
@@ -271,7 +272,7 @@ resume = False
 load_from = None
 
 base_lr = 0.0002
-max_epochs = 600
+max_epochs = 100
 
 train_cfg = dict(max_epochs=max_epochs)
 
@@ -337,7 +338,7 @@ optim_wrapper = dict(
         weight_decay=0.05)
 )
 
-
+randomness = dict(seed=4021)
 #### DeepSpeed training config
 # runner_type = 'FlexibleRunner'
 # strategy = dict(
