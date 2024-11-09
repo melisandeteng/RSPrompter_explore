@@ -82,7 +82,9 @@ def main():
         # use config filename as default work_dir if cfg.work_dir is None
         cfg.work_dir = osp.join('./work_dirs',
                                 osp.splitext(osp.basename(args.config))[0])
-
+    
+    cfg.work_dir = osp.join(cfg.work_dir, 'seed_' + str(cfg.randomness.seed))
+    os.makedirs(cfg.work_dir, exist_ok=True)
     # enable automatic-mixed-precision training
     if args.amp is True:
         cfg.optim_wrapper.type = 'AmpOptimWrapper'
