@@ -83,6 +83,10 @@ class CocoMetric(BaseMetric):
                  sort_categories: bool = False,
                  use_mp_eval: bool = False,
                  single_class: bool=False) -> None:
+        
+        if single_class:
+            prefix = "single_coco"
+
         super().__init__(collect_device=collect_device, prefix=prefix)
         # coco evaluation metrics
         
@@ -102,6 +106,7 @@ class CocoMetric(BaseMetric):
         #single class: whether we consider the one class trees or different classes of tree species
         self.single_class=single_class
         if self.single_class:
+
             if self.dataset_meta is None:
                 self.dataset_meta = {}
             self.dataset_meta['classes'] = ["trees"]

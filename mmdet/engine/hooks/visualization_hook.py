@@ -94,8 +94,8 @@ class DetVisualizationHook(Hook):
         # Visualize only the first data
         img_path = outputs[0].img_path
         img_bytes = get(img_path, backend_args=self.backend_args)
-        img = mmcv.imfrombytes(img_bytes, channel_order='rgb')
-
+        img = mmcv.imfrombytes(img_bytes, channel_order='rgb', backend='pillow')
+        
         if total_curr_iter % self.interval == 0:
             self._visualizer.add_datasample(
                 osp.basename(img_path) if self.show else 'val_img',
@@ -292,7 +292,7 @@ class TrackVisualizationHook(Hook):
         """
         img_path = img_data_sample.img_path
         img_bytes = get(img_path, backend_args=self.backend_args)
-        img = mmcv.imfrombytes(img_bytes, channel_order='rgb')
+        img = mmcv.imfrombytes(img_bytes, channel_order='rgb', backend='pillow')
 
         out_file = None
         if self.test_out_dir is not None:
