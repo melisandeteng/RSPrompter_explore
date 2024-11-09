@@ -67,7 +67,12 @@ class RSPrompterAnchorDSM(MaskRCNN):
             nn.GELU(),
             nn.Conv2d(mask_in_chans, embed_dim, kernel_size=1),
         )
-        
+
+        print("backbone dsm", sum(p.numel() for p in self.backbone_dsm.parameters()))
+        print("rpn dsm", sum(p.numel() for p in self.rpn_head.parameters()))
+        print("shared_image_embd", sum(p.numel() for p in self.shared_image_embedding.parameters()))
+        print("roi head ", sum(p.numel() for p in self.roi_head.parameters())) 
+        print("neck", sum(p.numel() for p in self.neck.parameters()))
         #self.backbone_dsm =  nn.Sequential(
         #    nn.Conv2d(1, 768, kernel_size=(16, 16), stride=(16, 16)), 
         #    nn.Conv2d(768, 256, kernel_size=(1, 1)),
@@ -458,6 +463,7 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
             loss_mask: ConfigType = dict(
                 type='CrossEntropyLoss', use_mask=True, loss_weight=1.0),
             init_cfg=None,
+            dsm_modulated_image=False,
             *args,
             **kwargs):
         BaseModule.__init__(self, init_cfg=init_cfg)
@@ -470,9 +476,8 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
         self.attention_similarity = attention_similarity
         self.target_embedding = target_embedding
         self.output_attentions = output_attentions
-
         self.mask_decoder = MODELS.build(mask_decoder)
-
+        self.dsm_modulated_image = dsm_modulated_image
         prompt_encoder = dict(
             type='RSSamPromptEncoder',
             hf_pretrain_name=copy.deepcopy(mask_decoder.get('hf_pretrain_name')),
@@ -480,8 +485,10 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
         )
         prompt_encoder = MODELS.build(prompt_encoder)
         prompt_encoder.init_weights()
+        print("prompt encoder", sum(p.numel() for p in prompt_encoder.parameters()))
         self.no_mask_embed = prompt_encoder.prompt_encoder.no_mask_embed
-
+        print("no mask embed", sum(p.numel() for p in self.no_mask_embed.parameters()))
+        
         if with_sincos:
             num_sincos = 2
         else:
@@ -497,7 +504,7 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
             nn.ReLU(inplace=True),
             nn.Linear(in_channels, in_channels * num_sincos * per_pointset_point)
         )
-
+        print("point emb", sum(p.numel() for p in self.point_emb.parameters()))
         self.loss_mask = MODELS.build(loss_mask)
         self.class_agnostic = class_agnostic
 
@@ -538,9 +545,12 @@ class RSPrompterAnchorMaskHeadDSM(FCNMaskHead, BaseModule):
         image_embeddings = image_embeddings.repeat_interleave(num_roi_per_image, dim=0)
         
         image_positional_embeddings = image_positional_embeddings.repeat_interleave(num_roi_per_image, dim=0)
-
+        if self.dsm_modulated_image:
+            image_embeddings_inputs = image_embeddings * dsm_x
+        else:
+            image_embeddings_inputs = image_embeddings
         low_res_masks, iou_predictions, mask_decoder_attentions = self.mask_decoder(
-            image_embeddings=image_embeddings * dsm_x,
+            image_embeddings=image_embeddings_inputs,
             image_positional_embeddings=image_positional_embeddings,
             sparse_prompt_embeddings=sparse_embeddings,
             dense_prompt_embeddings=dsm_x, #dense_embeddings+dsm_x,
