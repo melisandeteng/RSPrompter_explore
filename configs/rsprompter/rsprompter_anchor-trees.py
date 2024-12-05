@@ -11,11 +11,13 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=2, save_best='coco/bbox_mAP', rule='greater', save_last=True),
     sampler_seed=dict(type='DistSamplerSeedHook'),
-    #visualization=dict(type='DetVisualizationHook', draw=True, interval=5, test_out_dir='vis_data', score_thr=0.3)
+    visualization=dict(type='DetVisualizationHook', draw=True, interval=10, score_thr=0.3)
 )
 
+#test_out_dir='vis_data', 
+
 vis_backends = [#dict(type='LocalVisBackend'),
-               dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-clean', group='rsprompter-anchor', name='rsprompter-vanilla-without-dsm-seed0'))
+               dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-clean', group='rsprompter-base', name='rsprompter-anchor-trees', resume="allow", id="rsprompter-anchor-trees",  allow_val_change=True))
                 ]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
@@ -271,7 +273,7 @@ find_unused_parameters = True
 resume = False
 load_from = None
 
-base_lr = 0.0002
+base_lr = 0.0001
 max_epochs = 100
 
 train_cfg = dict(max_epochs=max_epochs)

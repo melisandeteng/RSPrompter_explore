@@ -60,6 +60,8 @@ def parse_args():
 
     return args
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def main():
     args = parse_args()
@@ -73,7 +75,8 @@ def main():
     cfg.launcher = args.launcher
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
-  
+    
+    print("SEED", cfg.randomness.seed)
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None
@@ -85,6 +88,7 @@ def main():
     
     cfg.work_dir = osp.join(cfg.work_dir, 'seed_' + str(cfg.randomness.seed))
     os.makedirs(cfg.work_dir, exist_ok=True)
+    #cfg.vis_backends.0.init_kwargs.id="rsprompter-anchor-trees-imgxdsm-" + str(cfg.randomness.seed)
     # enable automatic-mixed-precision training
     if args.amp is True:
         cfg.optim_wrapper.type = 'AmpOptimWrapper'
@@ -104,9 +108,11 @@ def main():
 
     # resume is determined in this priority: resume from > auto_resume
     if args.resume == 'auto':
+        print("Resuming from last checkpoint")
         cfg.resume = True
         cfg.load_from = None
     elif args.resume is not None:
+        print(f"Resuming from checkpoint {args.resume}")
         cfg.resume = True
         cfg.load_from = args.resume
 
@@ -119,8 +125,13 @@ def main():
         # build customized runner from the registry
         # if 'runner_type' is set in the cfg
         runner = RUNNERS.build(cfg)
+        
+    #get numpber of parameters of model
+    num_params = count_parameters(runner.model)
+    print("Number of trainable parameters: ", num_params)
 
     # start training
+    print("start training")
     runner.train()
 
 
