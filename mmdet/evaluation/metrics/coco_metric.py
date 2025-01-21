@@ -583,6 +583,8 @@ class CocoMetric(BaseMetric):
                         # indexes of IoU  @50 and @75
                         for iou in [0, 5]:
                             precision = precisions[iou, :, idx, 0, -1]
+                            if self.weighted:
+                                precision = precision*self.weights[idx]
                             precision = precision[precision > -1]
                             if precision.size:
                                 ap = np.mean(precision)
@@ -593,6 +595,8 @@ class CocoMetric(BaseMetric):
                         # indexes of area of small, median and large
                         for area in [1, 2, 3]:
                             precision = precisions[:, :, idx, area, -1]
+                            if self.weighted:
+                                precision = precision*self.weights[idx]
                             precision = precision[precision > -1]
                             if precision.size:
                                 ap = np.mean(precision)

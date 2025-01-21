@@ -3,7 +3,7 @@ _base_ = ['_base_/rsprompter_anchor.py']
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
 
-work_dir = '/network/scratch/t/tengmeli/RSPrompter_clean/rsprompter_anchor_trees_dsm'
+work_dir = '/network/scratch/t/tengmeli/RSPrompter_final/rsprompter_anchor_trees_dsm_final'
 
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
@@ -11,11 +11,13 @@ default_hooks = dict(
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=2, save_best='coco/segm_mAP', rule='greater', save_last=True),
     sampler_seed=dict(type='DistSamplerSeedHook'),
+     visualization=dict(type='DetVisualizationHook', draw=True, interval=10, score_thr=0.3)
 )
 
 vis_backends = [
-                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-trees-clean', group='rsprompter-anchor', name='rsprompter_dsm_gradient',resume="allow", id="rsprompter_dsm_gradient"))
+                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-final', group='rsprompter-anchor-dsm', name='rsprompter_dsm_final',resume="allow", id="rsprompter_dsm_final",  allow_val_change=True))
                 ]
+
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
 
@@ -32,7 +34,7 @@ data_preprocessor = dict(
     type='DSMDetDataPreprocessor',
     mean=[0.485 * 255, 0.456 * 255, 0.406 * 255], #imgnet rgb
     std=[0.229 * 255, 0.224 * 255, 0.225 * 255],
-    dsm_norm="gradient",
+    dsm_norm="max",
     bgr_to_rgb=False,
     pad_mask=False, #True,
     pad_size_divisor=32,
@@ -199,14 +201,14 @@ find_unused_parameters = True
 resume = True
 load_from = None
 
+
 base_lr = 0.00001
-max_epochs = 600
+max_epochs = 50
 
 train_cfg = dict(max_epochs=max_epochs)
 
-param_scheduler = [
-    dict(
-        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=50),
+pparam_scheduler = [dict(
+        type='LinearLR', start_factor=0.01, by_epoch=False, begin=0, end=7871),
     dict(
         type='CosineAnnealingLR',
         eta_min=base_lr * 0.001,
@@ -217,7 +219,32 @@ param_scheduler = [
     )
 ]
 
-
+val_evaluator = [dict(
+    type='CocoMetric',
+    metric=['bbox', 'segm'],
+    classwise=True, 
+    format_only=False,
+    backend_args=backend_args,
+    single_class=False
+), 
+dict(
+    type='CocoMetric',
+    metric=['bbox', 'segm'],
+    classwise=False, 
+    format_only=False,
+    backend_args=backend_args,
+    single_class=True
+),
+dict(
+    type='CocoMetric',
+    metric=['segm'],
+    classwise=True, 
+    format_only=False,
+    backend_args=backend_args,
+    single_class=False,
+    weighted=True
+)
+]
 test_evaluator = [dict(
     type='CocoMetric',
     metric=['segm'],
