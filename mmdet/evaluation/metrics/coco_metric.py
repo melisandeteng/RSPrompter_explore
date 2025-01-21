@@ -82,11 +82,16 @@ class CocoMetric(BaseMetric):
                  prefix: Optional[str] = None,
                  sort_categories: bool = False,
                  use_mp_eval: bool = False,
-                 single_class: bool=False) -> None:
-        
+                 single_class: bool=False, 
+                weighted: bool=False) -> None:
+        self.weighted= weighted
+        #validation weights
+        self.weights =[0.3051425573,0.08947000175,0.1070054224,0.293423124,
+                  0.025056848,0.01071366101,0.1623666259,0.001749169145,0.00507259052]
         if single_class:
             prefix = "single_coco"
-
+        if weighted:
+            prefix = "weighted"
         super().__init__(collect_device=collect_device, prefix=prefix)
         # coco evaluation metrics
         
@@ -373,6 +378,7 @@ class CocoMetric(BaseMetric):
             result['bboxes'] = pred['bboxes'].cpu().numpy()
             result['scores'] = pred['scores'].cpu().numpy()
             result['labels'] = pred['labels'].cpu()
+            
             #for single class metric
             if self.single_class:
                 result['labels']= torch.zeros_like(result['labels'])
@@ -560,8 +566,13 @@ class CocoMetric(BaseMetric):
                         # max dets index -1: typically 100 per image
                         nm = self._coco_api.loadCats(cat_id)[0]
                         precision = precisions[:, :, idx, 0, -1]
+                        if self.weighted:
+                            precision = precision*self.weights[idx]
                         precision = precision[precision > -1]
                         if precision.size:
+                            
+                                
+                            
                             ap = np.mean(precision)
                         else:
                             ap = float('nan')

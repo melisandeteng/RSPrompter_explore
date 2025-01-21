@@ -133,7 +133,7 @@ def main():
     # start training
     print("start training")
     runner.train()
-
+    runner.test()
 
 if __name__ == '__main__':
     main()

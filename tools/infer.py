@@ -61,7 +61,7 @@ def main():
     # load config
     cfg = Config.fromfile(args.config)
     
-    cfg.load_from = args.checkpoint
+    #cfg.load_from = args.checkpoint
     
     cfg.launcher = args.launcher
     if args.cfg_options is not None:
