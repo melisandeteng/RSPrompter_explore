@@ -551,6 +551,18 @@ class CocoMetric(BaseMetric):
             else:
                 coco_eval.evaluate()
                 coco_eval.accumulate()
+                # dimension of precision: [TxRxKxAxM]
+                 #N img ids to use for evaluation
+                #  catIds     - [all] K cat ids to use for evaluation
+                #  iouThrs    - [.5:.05:.95] T=10 IoU thresholds for evaluation
+                #  recThrs    - [0:.01:1] R=101 recall thresholds for evaluation
+                #  areaRng    - [...] A=4 object area ranges for evaluation
+                
+                if self.weighted:
+                    weights_reshaped = np.array(self.weights)[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis]
+
+                    coco_eval.eval["precision"] = coco_eval.eval["precision"] * weights_reshaped
+                
                 coco_eval.summarize()
                 if self.classwise:  # Compute per-category AP
                     # Compute per-category AP
