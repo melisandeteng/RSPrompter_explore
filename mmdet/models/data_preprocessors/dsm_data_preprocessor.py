@@ -171,9 +171,8 @@ class DSMDetDataPreprocessor(ImgDataPreprocessor):
         
         inputs, dsm_inputs = data["inputs"]
         
-
+        #TODO FIX THIS TO CREATE BATCH DIRECTLY
         if is_seq_of(dsm_inputs, torch.Tensor):
-            print("length DSM inputs", len(dsm_inputs))
             batch_inputs = []
             for _batch_input in dsm_inputs:
         

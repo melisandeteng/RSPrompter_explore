@@ -558,10 +558,10 @@ class CocoMetric(BaseMetric):
                 #  recThrs    - [0:.01:1] R=101 recall thresholds for evaluation
                 #  areaRng    - [...] A=4 object area ranges for evaluation
                 
-                if self.weighted:
-                    weights_reshaped = np.array(self.weights)[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis]
+                #if self.weighted:
+                #    weights_reshaped = np.array(self.weights)[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis]
 
-                    coco_eval.eval["precision"] = coco_eval.eval["precision"] * weights_reshaped
+                #    coco_eval.eval["precision"] = coco_eval.eval["precision"] * weights_reshaped
                 
                 coco_eval.summarize()
                 if self.classwise:  # Compute per-category AP
@@ -578,8 +578,8 @@ class CocoMetric(BaseMetric):
                         # max dets index -1: typically 100 per image
                         nm = self._coco_api.loadCats(cat_id)[0]
                         precision = precisions[:, :, idx, 0, -1]
-                        if self.weighted:
-                            precision = precision*self.weights[idx]
+                        #if self.weighted:
+                        #    precision = precision*self.weights[idx]
                         precision = precision[precision > -1]
                         if precision.size:
                             
@@ -595,8 +595,8 @@ class CocoMetric(BaseMetric):
                         # indexes of IoU  @50 and @75
                         for iou in [0, 5]:
                             precision = precisions[iou, :, idx, 0, -1]
-                            if self.weighted:
-                                precision = precision*self.weights[idx]
+                            #if self.weighted:
+                            #    precision = precision*self.weights[idx]
                             precision = precision[precision > -1]
                             if precision.size:
                                 ap = np.mean(precision)
@@ -607,8 +607,8 @@ class CocoMetric(BaseMetric):
                         # indexes of area of small, median and large
                         for area in [1, 2, 3]:
                             precision = precisions[:, :, idx, area, -1]
-                            if self.weighted:
-                                precision = precision*self.weights[idx]
+                            #if self.weighted:
+                            #    precision = precision*self.weights[idx]
                             precision = precision[precision > -1]
                             if precision.size:
                                 ap = np.mean(precision)
