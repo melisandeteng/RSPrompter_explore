@@ -4,6 +4,7 @@ Before running any model, prepare the data using the data preprocessing scripts 
 This repo is based on a **fork** from the RSPrompter repository: [https://github.com/KyanChen/RSPrompter](https://github.com/KyanChen/RSPrompter). Upon paper acceptance, the commit history will be visible so that different assets are correctly attributed to their original creators. 
 
 In this repo, you will find code to run the RSPrompter and BalSAM models as well as example configurations files. 
+This part of the project is setup such that metrics and images will be logged in Weights and Biases. 
 
 We suggest to first follow the instructions from the original RSPrompter repository to create your environment. The dependencies for this project can be found in `environment.yaml`.
 
@@ -12,6 +13,10 @@ We suggest to first follow the instructions from the original RSPrompter reposit
     ```python tools/train.py configs/rsprompter/{config_file_name} --resume "auto" ```
 - You can update directly config arguments, for example:
   ```python tools/train.py configs/rsprompter/{config_file_name} --resume "auto" --cfg-options randomness.seed={seed} visualizer.vis_backends.0.init_kwargs.id="{wandb_exp_id}" visualizer.vis_backends.0.init_kwargs.name={wandb_exp_name}```
+
+
+For computing the metrics, in order to compute them in the same way as for the other baselines, please refer to ```computemetrics.py``` and ```computemetrics-dsm.py```. For these you will need to use the environment detailed in the folder for the Mask R-CNN and SAM out-of-the-box-based models. 
+
 
 # Below follows the original README from the RSPrompter repository
 
