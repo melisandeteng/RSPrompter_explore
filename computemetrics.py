@@ -7,6 +7,8 @@ from torchmetrics.detection.mean_ap import MeanAveragePrecision
 import torch
 import numpy as np
 import pandas as pd
+import argparse
+import os
 
 def convert_preds_pickle_to_coco(file, 
                                 save_path= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json"):
@@ -32,7 +34,7 @@ def convert_preds_pickle_to_coco(file,
 
 
     
-def main(preds_json= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json",  annots = "/network/projects/trees-co2/quebec_trees_tiles_fullresolution/merged_annots_test_new.json" ):
+def main(preds_json= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json",  annots = "/network/projects/trees-co2/quebec_trees_tiles_fullresolution/merged_annots_test_new.json" , save_path_csv = "/network/scratch/t/tengmeli/rsprompter_predsbcidsm_tars_classes.csv"):
     print(f"evaluation of {preds_json}")
    #final_tiles/merged_annots_test_new.json"
     
@@ -143,17 +145,38 @@ def main(preds_json= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anc
      'targets': tar_classes
     })
     print("saving df")
-    df.to_csv("/network/scratch/t/tengmeli/rsprompter_predsbci_tars_classes.csv")
-        
+    df.to_csv(save_path_csv)
+
+def parse_args():
+    parser = argparse.ArgumentParser(description='Train a detector')
+    parser.add_argument('picklefile', help='predictions pickle file from infer')
+    parser.add_argument('--save-file', help='json file')
+    
+    parser.add_argument('--annots', help='annotations json file')
+    parser.add_argument(
+        '--csv_path',
+        type=str,
+        help='path to csv to save preds and targets classes to compute confusion matrices')
+    args = parser.parse_args()
+    return args
 
 if __name__=="__main__":
 
-
-    print("seed 0 best")
-    save_path2 = "/network/scratch/t/tengmeli/RSPrompter_bci/preds/preds_seed0_epoch63.json"
-    file2 = "/network/scratch/t/tengmeli/RSPrompter_bci/preds/preds_seed0_epoch63.pkl"
-    convert_preds_pickle_to_coco(file2,save_path2)
-    main(save_path2, annots = "/network/projects/trees-co2/BCI/BCI_2022_tilessubset_family/bci_50ha_2022_09_29_global/bci_50ha_2022_09_29_global_coco_sf0p5_test.json")
+    args = parse_args()
+    
+    file = args.picklefile
+    save_path = args.save_file
+    
+    annots = args.annots
+    save_path_csv = os.path.dirname(str(args.save_file))
+    convert_preds_pickle_to_coco(file, save_path)
+    main(save_path, annots, save_path_csv + "/dsm_tars_classes.csv")
+    
+    
+    #save_path2 = "/network/scratch/t/tengmeli/RSPrompter_bci/preds/preds_seed0_epoch63.json"
+    #file2 = "/network/scratch/t/tengmeli/RSPrompter_bci/preds/preds_seed0_epoch63.pkl"
+    #convert_preds_pickle_to_coco(file2,save_path2)
+    #main(save_path2, annots = "/network/projects/trees-co2/BCI/BCI_2022_tilessubset_family/bci_50ha_2022_09_29_global/bci_50ha_2022_09_29_global_coco_sf0p5_test.json")
     
     #print("seed 0 latest")
     #save_path2 = "/network/scratch/t/tengmeli/RSPrompter_b/preds/preds_seed0_epoch37.json"

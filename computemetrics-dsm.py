@@ -69,7 +69,7 @@ def main(preds_json= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anc
         masks = []
         for ann in anns:
             x, y, w, h = ann['bbox']
-            boxes.append([x, y, x + w, y + h])  # Convert to [x_min, y_min, x_max, y_max]
+            boxes.append([x, y,  w,  h])  # Convert to [x_min, y_min, x_max, y_max]
             labels.append(ann['category_id'])
             if 'counts' in ann["segmentation"] and isinstance(ann["segmentation"]['counts'], str):
                 counts = base64.b64decode(ann["segmentation"]['counts'])
