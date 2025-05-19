@@ -1,3 +1,17 @@
+# Bringing SAM to new heights: RSPrompter and BalSAM models
+
+Before running any model, prepare the data using the data preprocessing scripts in the folder that contains code for the other baselines. 
+This repo is based on a **fork** from the RSPrompter repository: [https://github.com/KyanChen/RSPrompter](https://github.com/KyanChen/RSPrompter). Upon paper acceptance, the commit history will be visible so that different assets are correctly attributed to their original creators. 
+
+In this repo, you will find code to run the RSPrompter and BalSAM models as well as example configurations files. 
+
+We suggest to first follow the instructions from the original RSPrompter repository to create your environment. The dependencies for this project can be found in `environment.yaml`.
+
+
+
+# Below follows the original README from the RSPrompter repository
+
+
 <div align="center">
     <h2>
         RSPrompter: Learning to Prompt for Remote Sensing Instance Segmentation based on Visual Foundation Model
