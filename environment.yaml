@@ -244,5 +244,5 @@ dependencies:
     - xmltodict==0.13.0
     - yapf==0.40.2
     - zipp==3.20.2
-prefix: /home/mila/t/tengmeli/.conda/envs/rsprompter
+prefix: /home/XXXX-1/.conda/envs/rsprompter
 

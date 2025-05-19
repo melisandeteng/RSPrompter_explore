@@ -3,7 +3,7 @@ _base_ = ['_base_/rsprompter_anchor.py']
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
 
-work_dir = '/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_higherwd'
+work_dir = '/ROOT_WORK_DIR/rspromter_anchor_trees_plantations'
 crop_size = (1024, 1024)
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
@@ -14,7 +14,7 @@ default_hooks = dict(
     visualization=dict(type='DetVisualizationHook', draw=True, interval=10, score_thr=0.3)
 )
 
-test_out_dir="/network/scratch/t/tengmeli/RSPrompter_final/rspromter_anchor_trees_higherwd_preds" 
+test_out_dir='/ROOT_WORK_DIR/rspromter_anchor_trees_plantations_preds'
 
 vis_backends = [#dict(type='LocalVisBackend'),
                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-final', group='rsprompter-base', name='rsprompter-anchor-trees-higherwd', resume="allow", id="rsprompter-anchor-trees-higherwd",  allow_val_change=True))
@@ -27,10 +27,10 @@ prompt_shape = (70, 5)  # (per img pointset, per pointset point)
 
 #### should be changed when using different pretrain model
 
-hf_sam_pretrain_name = "/network/projects/trees-co2/RSPrompter/sam_vit_base"
+hf_sam_pretrain_name = "/ROOT_DATA/RSPrompter/sam_vit_base"
 # huggingface model name, e.g. facebook/sam-vit-base
 # or local repo path, e.g. work_dirs/sam_cache/sam_vit_base
-hf_sam_pretrain_ckpt_path = "/network/projects/trees-co2/RSPrompter/sam_vit_base/pytorch_model.bin"
+hf_sam_pretrain_ckpt_path = "/ROOT_DATA/RSPrompter/sam_vit_base/pytorch_model.bin"
 data_preprocessor = dict(
     type='DetDataPreprocessor',
     mean=[0.485 * 255, 0.456 * 255, 0.406 * 255],
@@ -179,8 +179,8 @@ model = dict(
 
 dataset_type = "TreesInsSegDataset"
 #### should be changed align with your code root and data root
-code_root = '/home/mila/t/tengmeli/RSPRompter'
-data_root = '' #'/network/projects/trees-co2/RSPrompterDataset/blackburn1/'
+code_root = '/ROOT_CODE/RSPrompter'
+data_root = '' 
 
 batch_size_per_gpu = 2
 num_workers = 8
@@ -225,7 +225,7 @@ train_datasets_list = [
     dict(
         type=dataset_type,
         data_root='',
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_train_new.json",
+        ann_file="/ROOT_DATA/final_tiles/merged_annots_train_new.json",
         #data_prefix=dict(img='tiles/'),
         pipeline=train_pipeline,
 ), 
@@ -250,7 +250,7 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root="",
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_val_new.json",
+        ann_file="/ROOT_DATA/final_tiles/merged_annots_val_new.json",
         pipeline=test_pipeline,
         #data_prefix=dict(img='tiles/'),
     )
@@ -262,7 +262,7 @@ test_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root="",
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_test_new.json",
+        ann_file="/ROOT_DATA/final_tiles/merged_annots_test_new.json",
         pipeline=test_pipeline,
         #data_prefix=dict(img='tiles/'),
     )
@@ -321,7 +321,6 @@ dict(
 ]
 
 test_evaluator = [
-    #dict(outfile_prefix= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/"),
     dict(
     type='CocoMetric',
     metric=['bbox', 'segm'],

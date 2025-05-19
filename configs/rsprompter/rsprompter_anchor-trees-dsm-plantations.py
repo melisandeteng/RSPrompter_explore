@@ -3,33 +3,35 @@ _base_ = ['_base_/rsprompter_anchor.py']
 default_scope = 'mmdet'
 custom_imports = dict(imports=['mmdet.rsprompter'], allow_failed_imports=False)
 
-work_dir = '/network/scratch/t/tengmeli/RSPrompter_final/rsprompter_anchor_trees_dsm_final'
-
+work_dir = '/ROOT_WORK_DIR/rsprompter-anchor-trees-base-dsm-final'
+crop_size = (1024, 1024)
 default_hooks = dict(
     timer=dict(type='IterTimerHook'),
     logger=dict(type='LoggerHook', interval=10),
     param_scheduler=dict(type='ParamSchedulerHook'),
     checkpoint=dict(type='CheckpointHook', interval=1, max_keep_ckpts=2, save_best='coco/segm_mAP', rule='greater', save_last=True),
     sampler_seed=dict(type='DistSamplerSeedHook'),
-     visualization=dict(type='DetVisualizationHook', draw=True, interval=10, score_thr=0.3)
+    visualization=dict(type='DetVisualizationHook', draw=True, interval=1, score_thr=0.3)
 )
 
-vis_backends = [
-                dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-final', group='rsprompter-anchor-dsm', name='rsprompter_dsm_final',resume="allow", id="rsprompter_dsm_final",  allow_val_change=True))
-                ]
+test_out_dir="/ROOT_WORK_DIR/rsprompter-anchor-trees-base-dsm-final"
 
+vis_backends = [#dict(type='LocalVisBackend'),
+               dict(type='WandbVisBackend', init_kwargs=dict(project='rsprompter-final', group='rsprompter-final', name='rsprompter-anchor-trees-dsm-final', resume="allow", id="rsprompter-anchor-trees-dsm-final",  allow_val_change=True))
+                ]
 visualizer = dict(
     type='DetLocalVisualizer', vis_backends=vis_backends, name='visualizer')
+
 
 num_classes = 9
 prompt_shape = (70, 5)  # (per img pointset, per pointset point)
 
 #### should be changed when using different pretrain model
 
-hf_sam_pretrain_name = "/network/projects/trees-co2/RSPrompter/sam_vit_base"
+hf_sam_pretrain_name = "/ROOT_CHECKPOINT/sam_vit_base"
 # huggingface model name, e.g. facebook/sam-vit-base
 # or local repo path, e.g. work_dirs/sam_cache/sam_vit_base
-hf_sam_pretrain_ckpt_path = "/network/projects/trees-co2/RSPrompter/sam_vit_base/pytorch_model.bin"
+hf_sam_pretrain_ckpt_path = "/ROOT_CHECKPOINT/sam_vit_base/pytorch_model.bin"
 data_preprocessor = dict(
     type='DSMDetDataPreprocessor',
     mean=[0.485 * 255, 0.456 * 255, 0.406 * 255], #imgnet rgb
@@ -113,8 +115,8 @@ model = dict(
 
 dataset_type = "TreesInsSegDSMDataset"
 #### should be changed align with your code root and data root
-code_root = '/home/mila/t/tengmeli/RSPRompter'
-data_root = '' #'/network/projects/trees-co2/RSPrompterDataset/blackburn1/'
+code_root ='/ROOT_CODE/RSPrompter'
+data_root = '' 
 
 batch_size_per_gpu = 2
 num_workers = 8
@@ -165,7 +167,7 @@ train_dataloader = dict(
     dataset = dict(
         type=dataset_type,
         data_root='',
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_train_new.json",
+        ann_file="/ROOT_DATA/final_tiles/merged_annots_dsm_train_new.json",
         pipeline=train_pipeline,
 ), 
 
@@ -179,7 +181,7 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root="",
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_val_new.json",
+        ann_file="/ROOT_DATA/final_tiles/merged_annots_dsm_val_new.json",
         #data_prefix=dict(img='tiles/'),
         pipeline =test_pipeline
     )
@@ -191,7 +193,7 @@ test_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root="",
-        ann_file="/network/projects/trees-co2/final_tiles/merged_annots_dsm_test_new.json",
+        ann_file="/ROOT_DATA/final_tiles/merged_annots_dsm_test_new.json",
         pipeline =test_pipeline
     )
 )
@@ -201,14 +203,14 @@ find_unused_parameters = True
 resume = True
 load_from = None
 
-
 base_lr = 0.00001
-max_epochs = 50
+max_epochs=50
 
 train_cfg = dict(max_epochs=max_epochs)
 
-pparam_scheduler = [dict(
-        type='LinearLR', start_factor=0.01, by_epoch=False, begin=0, end=7871),
+param_scheduler = [
+    dict(
+        type='LinearLR', start_factor=0.001, by_epoch=False, begin=0, end=7871),
     dict(
         type='CosineAnnealingLR',
         eta_min=base_lr * 0.001,
@@ -217,8 +219,10 @@ pparam_scheduler = [dict(
         T_max=max_epochs,
         by_epoch=True
     )
+    #dict(type="ExponentialLR", gamma=0.9)
 ]
 
+backend_args=None
 val_evaluator = [dict(
     type='CocoMetric',
     metric=['bbox', 'segm'],
@@ -229,7 +233,35 @@ val_evaluator = [dict(
 ), 
 dict(
     type='CocoMetric',
+    metric=[ 'segm'],
+    classwise=False, 
+    format_only=False,
+    backend_args=backend_args,
+    single_class=True
+),
+    dict(
+    type='CocoMetric',
+    metric=['segm'],
+    classwise=True, 
+    format_only=False,
+    backend_args=backend_args,
+    single_class=False,
+    weighted=True
+)
+]
+
+test_evaluator = [
+    dict(
+    type='CocoMetric',
     metric=['bbox', 'segm'],
+    classwise=True, 
+    format_only=False,
+    backend_args=backend_args,
+    single_class=False
+), 
+dict(
+    type='CocoMetric',
+    metric=[ 'segm'],
     classwise=False, 
     format_only=False,
     backend_args=backend_args,
@@ -244,25 +276,7 @@ dict(
     single_class=False,
     weighted=True
 )
-]
-test_evaluator = [dict(
-    type='CocoMetric',
-    metric=['segm'],
-    classwise=True, 
-    format_only=False,
-    backend_args=None,
-    single_class=False
-), 
-dict(
-    type='CocoMetric',
-    metric=['segm'],
-    classwise=False, 
-    format_only=False,
-    backend_args=None,
-    single_class=True
-)
-]
-                        
+]                       
 #### AMP training config
 runner_type = 'Runner'
 optim_wrapper = dict(
