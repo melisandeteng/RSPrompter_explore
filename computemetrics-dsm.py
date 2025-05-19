@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 
 def convert_preds_pickle_to_coco(file, 
-                                save_path= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json"):
+                                save_path= "/ROOT/XXXX-1/BalSAM/preds/predictions_coco_format.json"):
     with open(file, "rb") as f:
         data = pickle.load(f)
     
@@ -32,9 +32,9 @@ def convert_preds_pickle_to_coco(file,
 
 
     
-def main(preds_json= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json"):
+def main(preds_json= "/ROOT/XXXX-1/BalSAM/preds/predictions_coco_format.json"):
     print(f"evaluation of {preds_json}")
-    annots =  "/network/projects/trees-co2/quebec_trees_tiles_fullresolution/merged_annots_test_new.json" 
+    annots =  "/DATA_ROOT/quebec_trees_tiles_fullresolution/merged_annots_test_new.json" 
     #"/network/projects/trees-co2/final_tiles/merged_annots_test_new.json"
     
     with open(preds_json, "r") as f:
@@ -147,111 +147,13 @@ def main(preds_json= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anc
      'targets': tar_classes
     })
     print("saving df")
-    df.to_csv("/network/scratch/t/tengmeli/rsprompter_dsm_preds_tars_classes.csv")
+    df.to_csv("//ROOT/XXXX-1/rsprompter_dsm_preds_tars_classes.csv")
     
-    #metric_weighed = 0
-    #weights = [1471,1056,544,6519,1946,1050,1601,19,56]
-    #for k, elem in enumerate(a['map_per_class']):
-    #    metric_weighed += elem * weights[k]
-    #metric_weighed = metric_weighed/ np.sum(np.array(weights))
-    #print("weighed map ", metric_weighed)
-        
-    """
-    # Parse ground truth for TorchMetrics
-    targets = []
-    for img_id in coco_gt.getImgIds():
-        ann_ids = coco_gt.getAnnIds(imgIds=img_id)
-        anns = coco_gt.loadAnns(ann_ids)
 
-        # Extract boxes and labels
-        boxes = []
-        labels = []
-        masks = []
-        for ann in anns:
-            x, y, w, h = ann['bbox']
-            boxes.append([x, y, x + w, y + h])  # Convert to [x_min, y_min, x_max, y_max]
-            labels.append(ann['category_id'])
-            if 'counts' in ann["segmentation"] and isinstance(ann["segmentation"]['counts'], str):
-                counts = base64.b64decode(ann["segmentation"]['counts'])
-                ann["segmentation"]['counts'] = counts
-
-            masks.append(maskUtils.decode(ann["segmentation"]))
-        labels= np.array(labels)
-        masks = np.array(masks)
-        targets.append({"boxes": boxes, "labels": torch.Tensor(labels),"masks": torch.Tensor(masks)})
-    
-    with open("/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json", "r") as f:
-        coco_preds = json.load(f)
-
-    # Parse predictions for TorchMetrics
-    preds = []
-    img_id_to_preds = {}
-    for pred in coco_preds:
-        img_id = pred["image_id"]
-        if img_id not in img_id_to_preds:
-            img_id_to_preds[img_id] = {"boxes": [], "scores": [], "labels": [], "masks":[]}
-
-        # Append prediction details
-        x, y, w, h = pred['bbox']
-        img_id_to_preds[img_id]["boxes"].append([x, y, x + w, y + h])
-        img_id_to_preds[img_id]["scores"].append(pred["score"])
-        img_id_to_preds[img_id]["labels"].append(pred["category_id"])
-        img_id_to_preds[img_id]["masks"].append(torch.Tensor(maskUtils.decode(pred["segmentation"])))
-    # Convert to list format
-    img_id_to_preds[img_id]["labels"] = torch.Tensor(img_id_to_preds[img_id]["labels"])
-    img_id_to_preds[img_id]["masks"] = torch.Tensor(img_id_to_preds[img_id]["masks"])
-    img_id_to_preds[img_id]["scores"] = torch.Tensor(img_id_to_preds[img_id]["scores"])
-    for img_id in coco_gt.getImgIds():
-        preds.append(img_id_to_preds.get(img_id, {"boxes": [], "scores": [], "labels": [], "masks":[]}))
-
-    metric = MeanAveragePrecision(iou_type= "segm")
-    print("evaluation")
-    #import pdb; pdb.set_trace()
-    for i, elem in enumerate(preds):
-        metric.update([preds[i]], [targets[i]])
-    result = metric.compute()
-    print(result)
-
-    """    
 if __name__=="__main__":
-    save_path =  "/network/scratch/t/tengmeli/RSPrompter_SBL-dsm/sbl/preds_14_seed0_test.json" #"/network/scratch/t/tengmeli/RSPrompter_final/rsprompter-anchor-trees-base-dsm-final/predictions_coco_format_seed1337_best.json"
-    file = "/network/scratch/t/tengmeli/RSPrompter_SBL-dsm/sbl/preds_14_seed0_test.pkl"
-    #"/network/scratch/t/tengmeli/RSPrompter_final/rsprompter-anchor-trees-base-dsm-final/preds_seed1337_epoch_9.pkl"
-    
+    save_path =  "/SAVE_PATH/preds_14_seed0_test.json" 
+    file = "/PATH_TO_CHECKPOINT/preds_14_seed0_test.pkl"
     convert_preds_pickle_to_coco(file,save_path)
     main(save_path)
   
-    """
-    print("seed 42 best")
-    save_path = "/network/scratch/t/tengmeli/RSPrompter_final/rsprompter-anchor-trees-base-dsm-final/predictions_coco_format_seed4021_best_dsm.json"
-    file ="/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_new_preds/preds_seed4021.pkl" #"/network/scratch/t/tengmeli/RSPrompter_final/rsprompter-anchor-trees-base-dsm-final/preds_seed42_epoch_4.pkl"
-    convert_preds_pickle_to_coco(file,save_path)
-    main(save_path)
-    
-    
-    print("seed 0 best")
-    save_path = "/network/scratch/t/tengmeli/RSPrompter_final/rsprompter-anchor-trees-base-dsm-final/predictions_coco_format_seed3999_best_dsm.json"
-    file = "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_new_preds/preds_seed3999_best.pkl" 
-    #"/network/scratch/t/tengmeli/RSPrompter_final/rsprompter-anchor-trees-base-dsm-final/preds_seed0_epoch_8.pkl"
-    convert_preds_pickle_to_coco(file,save_path)
-    main(save_path)
-    
-    print("seed 1337 best")
-    save_path = "/network/scratch/t/tengmeli/RSPrompter_final/rsprompter-anchor-trees-base-dsm-final/predictions_coco_format_seed2040_best_dsm.json"
-    file ="/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_new_preds/preds_seed2040.pkl" 
-    #"/network/scratch/t/tengmeli/RSPrompter_final/rsprompter-anchor-trees-base-dsm-final/preds_seed1337_epoch_9.pkl"
-    convert_preds_pickle_to_coco(file,save_path)
-    main(save_path)
-    
-    #print("seed 42 last")
-    #save_path = "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format_seed42.json"
-    #file = "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/preds_seed42.pkl"
-    #convert_preds_pickle_to_coco(file,save_path)
-    #main(save_path)
-    
-
-    
-    
-    #print("seed 0 epoch 40")
-    #main("/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json")
-    """
+  

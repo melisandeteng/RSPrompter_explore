@@ -11,7 +11,7 @@ import argparse
 import os
 
 def convert_preds_pickle_to_coco(file, 
-                                save_path= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json"):
+                                save_path= "/ROOT/XXXX-1/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json"):
     with open(file, "rb") as f:
         data = pickle.load(f)
     
@@ -34,7 +34,7 @@ def convert_preds_pickle_to_coco(file,
 
 
     
-def main(preds_json= "/network/scratch/t/tengmeli/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json",  annots = "/network/projects/trees-co2/quebec_trees_tiles_fullresolution/merged_annots_test_new.json" , save_path_csv = "/network/scratch/t/tengmeli/rsprompter_predsbcidsm_tars_classes.csv"):
+def main(preds_json= "/ROOT/XXXX-1/RSPrompter_clean/rspromter_anchor_trees_preds/predictions_coco_format.json",  annots = "/DATA_ROOT/quebec_trees_tiles_fullresolution/merged_annots_test_new.json" , save_path_csv = "/ROOT/XXXX-1/rsprompter_predsbcidsm_tars_classes.csv"):
     print(f"evaluation of {preds_json}")
    #final_tiles/merged_annots_test_new.json"
     
@@ -171,15 +171,3 @@ if __name__=="__main__":
     save_path_csv = os.path.dirname(str(args.save_file))
     convert_preds_pickle_to_coco(file, save_path)
     main(save_path, annots, save_path_csv + "/dsm_tars_classes.csv")
-    
-    
-    #save_path2 = "/network/scratch/t/tengmeli/RSPrompter_bci/preds/preds_seed0_epoch63.json"
-    #file2 = "/network/scratch/t/tengmeli/RSPrompter_bci/preds/preds_seed0_epoch63.pkl"
-    #convert_preds_pickle_to_coco(file2,save_path2)
-    #main(save_path2, annots = "/network/projects/trees-co2/BCI/BCI_2022_tilessubset_family/bci_50ha_2022_09_29_global/bci_50ha_2022_09_29_global_coco_sf0p5_test.json")
-    
-    #print("seed 0 latest")
-    #save_path2 = "/network/scratch/t/tengmeli/RSPrompter_b/preds/preds_seed0_epoch37.json"
-    #file2 = "/network/scratch/t/tengmeli/RSPrompter_sbl/preds/preds_seed0_epoch37.pkl"
-    #convert_preds_pickle_to_coco(file2,save_path2)
-    #main(save_path2)
