@@ -7,7 +7,11 @@ In this repo, you will find code to run the RSPrompter and BalSAM models as well
 
 We suggest to first follow the instructions from the original RSPrompter repository to create your environment. The dependencies for this project can be found in `environment.yaml`.
 
-
+- Examples of configuration files can be found in ```configs/rsprompter/```
+- Train a model with: 
+    ```python tools/train.py configs/rsprompter/{config_file_name} --resume "auto" ```
+- You can update directly config arguments, for example:
+  ```python tools/train.py configs/rsprompter/{config_file_name} --resume "auto" --cfg-options randomness.seed={seed} visualizer.vis_backends.0.init_kwargs.id="{wandb_exp_id}" visualizer.vis_backends.0.init_kwargs.name={wandb_exp_name}```
 
 # Below follows the original README from the RSPrompter repository
 
