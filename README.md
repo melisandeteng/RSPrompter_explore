@@ -6,7 +6,7 @@ This repo is based on a **fork** from the RSPrompter repository: [https://github
 In this repo, you will find code to run the RSPrompter and BalSAM models as well as example configurations files. 
 This part of the project is setup such that metrics and images will be logged in Weights and Biases. 
 
-We suggest to first follow the instructions from the original RSPrompter repository to create your environment. The dependencies for this project can be found in `environment.yaml`.
+We suggest to first follow the instructions from the original RSPrompter repository to create your environment. `requirements.txt` contains the dependencies from the original RSPrompter repo. We also share `environment.yaml` which has the dependencies from the conda environment we used to run the RSPrompter and BalSAM experiments.
 
 - Examples of configuration files can be found in ```configs/rsprompter/```. You will see configs named `rsprompter_anchor-trees-{DATASET_NAME}.py` for the RSPrompter models and `rsprompter_anchor-trees-dsm-{DATASET_NAME}.py` for the BalSAM models. 
 - For the purpose of anonymization, we have modified paths to data and output folders. Change the paths accordingly in the config files and the metrics computing scripts. 
@@ -17,6 +17,12 @@ We suggest to first follow the instructions from the original RSPrompter reposit
 
 
 For computing the metrics, in order to compute them in the same way as for the other baselines, please refer to ```computemetrics.py``` and ```computemetrics-dsm.py```. For these you will need to use the environment detailed in the folder for the Mask R-CNN and SAM out-of-the-box-based models. 
+
+Some of the main additions/changes to the original fork are in:
+- `mmdet/rsprompter/models_dsm.py` for the implementation of the BalSAM model.
+- `mmdet/datasets/coco.py` with the `CocoDSMDataset` class for using image and DSM as inputs.
+- `mmdet/models/data_preprocessors/dsm_data_preprocessor.py` for data preprocessing.
+- `mmdet/datasets/coco_metric.py` for different evaluation metrics.
 
 
 # Below follows the original README from the RSPrompter repository

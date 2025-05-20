@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 # Copyrights (c) OpenMMLab. All rights reserved.
 import datetime
 import itertools
@@ -82,19 +83,23 @@ class CocoMetric(BaseMetric):
                  prefix: Optional[str] = None,
                  sort_categories: bool = False,
                  use_mp_eval: bool = False,
-                 single_class: bool=False, 
-                weighted: bool=False) -> None:
-        self.weighted= weighted
+                 single_class: bool = False,
+                 weighted: bool = False) -> None:
+        self.weighted = weighted
         #validation weights
-        self.weights =[0.3051425573,0.08947000175,0.1070054224,0.293423124,
-                  0.025056848,0.01071366101,0.1623666259,0.001749169145,0.00507259052]
+        #this is only for some early exploration on the plantations - to be updated
+        self.weights = [
+            0.3051425573, 0.08947000175, 0.1070054224, 0.293423124,
+            0.025056848, 0.01071366101, 0.1623666259, 0.001749169145,
+            0.00507259052
+        ]
         if single_class:
-            prefix = "single_coco"
+            prefix = 'single_coco'
         if weighted:
-            prefix = "weighted"
+            prefix = 'weighted'
         super().__init__(collect_device=collect_device, prefix=prefix)
         # coco evaluation metrics
-        
+
         self.metrics = metric if isinstance(metric, list) else [metric]
         allowed_metrics = ['bbox', 'segm', 'proposal', 'proposal_fast']
         for metric in self.metrics:
@@ -109,12 +114,12 @@ class CocoMetric(BaseMetric):
         self.use_mp_eval = use_mp_eval
 
         #single class: whether we consider the one class trees or different classes of tree species
-        self.single_class=single_class
+        self.single_class = single_class
         if self.single_class:
 
             if self.dataset_meta is None:
                 self.dataset_meta = {}
-            self.dataset_meta['classes'] = ["trees"]
+            self.dataset_meta['classes'] = ['trees']
         # proposal_nums used to compute recall or precision.
         self.proposal_nums = list(proposal_nums)
 
@@ -378,12 +383,12 @@ class CocoMetric(BaseMetric):
             result['bboxes'] = pred['bboxes'].cpu().numpy()
             result['scores'] = pred['scores'].cpu().numpy()
             result['labels'] = pred['labels'].cpu()
-            
+
             #for single class metric
             if self.single_class:
-                result['labels']= torch.zeros_like(result['labels'])
-            result['labels']=result["labels"].numpy()
-            
+                result['labels'] = torch.zeros_like(result['labels'])
+            result['labels'] = result['labels'].numpy()
+
             # encode mask to RLE
             if 'masks' in pred:
                 result['masks'] = encode_mask_results(
@@ -399,22 +404,22 @@ class CocoMetric(BaseMetric):
             gt['height'] = data_sample['ori_shape'][0]
             gt['img_id'] = data_sample['img_id']
             if self._coco_api is None:
-                    anns = []
-                    gt_instances = data_sample['gt_instances']
-                    gt_labels = gt_instances['labels'].cpu()
-                    #for single class metric
-                    if self.single_class:
-                        gt_labels= torch.zeros_like(gt_labels)
-                    gt_labels = gt_labels.numpy()
-                    gt_bboxes = gt_instances['bboxes'].cpu().numpy()
-                    gt_masks = encode_mask_results(gt_instances['masks'])
-                    for bbox, mask, label in zip(gt_bboxes, gt_masks, gt_labels):
-                        ann = dict()
-                        ann['bbox_label'] = label
-                        ann['bbox'] = bbox
-                        ann['mask'] = mask
-                        anns.append(ann)
-                    gt['anns'] = anns
+                anns = []
+                gt_instances = data_sample['gt_instances']
+                gt_labels = gt_instances['labels'].cpu()
+                #for single class metric
+                if self.single_class:
+                    gt_labels = torch.zeros_like(gt_labels)
+                gt_labels = gt_labels.numpy()
+                gt_bboxes = gt_instances['bboxes'].cpu().numpy()
+                gt_masks = encode_mask_results(gt_instances['masks'])
+                for bbox, mask, label in zip(gt_bboxes, gt_masks, gt_labels):
+                    ann = dict()
+                    ann['bbox_label'] = label
+                    ann['bbox'] = bbox
+                    ann['mask'] = mask
+                    anns.append(ann)
+                gt['anns'] = anns
 
             self.results.append((gt, result))
 
@@ -552,17 +557,17 @@ class CocoMetric(BaseMetric):
                 coco_eval.evaluate()
                 coco_eval.accumulate()
                 # dimension of precision: [TxRxKxAxM]
-                 #N img ids to use for evaluation
+                #N img ids to use for evaluation
                 #  catIds     - [all] K cat ids to use for evaluation
                 #  iouThrs    - [.5:.05:.95] T=10 IoU thresholds for evaluation
                 #  recThrs    - [0:.01:1] R=101 recall thresholds for evaluation
                 #  areaRng    - [...] A=4 object area ranges for evaluation
-                
+
                 #if self.weighted:
                 #    weights_reshaped = np.array(self.weights)[np.newaxis, np.newaxis, :, np.newaxis, np.newaxis]
 
                 #    coco_eval.eval["precision"] = coco_eval.eval["precision"] * weights_reshaped
-                
+
                 coco_eval.summarize()
                 if self.classwise:  # Compute per-category AP
                     # Compute per-category AP
@@ -582,9 +587,7 @@ class CocoMetric(BaseMetric):
                         #    precision = precision*self.weights[idx]
                         precision = precision[precision > -1]
                         if precision.size:
-                            
-                                
-                            
+
                             ap = np.mean(precision)
                         else:
                             ap = float('nan')
