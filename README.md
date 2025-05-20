@@ -8,7 +8,8 @@ This part of the project is setup such that metrics and images will be logged in
 
 We suggest to first follow the instructions from the original RSPrompter repository to create your environment. The dependencies for this project can be found in `environment.yaml`.
 
-- Examples of configuration files can be found in ```configs/rsprompter/```
+- Examples of configuration files can be found in ```configs/rsprompter/```. You will see configs named `rsprompter_anchor-trees-{DATASET_NAME}.py` for the RSPrompter models and `rsprompter_anchor-trees-dsm-{DATASET_NAME}.py` for the BalSAM models. 
+- For the purpose of anonymization, we have modified paths to data and output folders. Change the paths accordingly in the config files and the metrics computing scripts. 
 - Train a model with: 
     ```python tools/train.py configs/rsprompter/{config_file_name} --resume "auto" ```
 - You can update directly config arguments, for example:
